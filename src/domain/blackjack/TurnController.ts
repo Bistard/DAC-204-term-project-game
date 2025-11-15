@@ -3,17 +3,26 @@ import { BlackjackRound, HandView } from './BlackjackRound';
 import { BlackjackRules, HandScore, RoundOutcome } from './BlackjackRules';
 import { Participant } from './Participant';
 import { Deck } from './Deck';
+import { AbilityCardEngine } from '../cards/AbilityCardEngine';
+import { NoAbilityCardEngine } from '../cards/NoAbilityCardEngine';
+import { AbilityCardState } from '../cards/CardTypes';
+import { RuleModifierSnapshot } from './RoundModifierState';
 
-export type Decision = 'hit' | 'stand';
+export type ActorDecision =
+  | { type: 'hit' }
+  | { type: 'stand' }
+  | { type: 'playCard'; cardId: string };
 
 export type RoundContext = {
   self: HandView;
   opponent: HandView;
   deckRemaining: number;
+  abilityHand: readonly AbilityCardState[];
+  ruleSnapshot: RuleModifierSnapshot;
 };
 
 export interface ActorStrategy {
-  decide(participant: Participant, context: RoundContext): Decision;
+  decide(participant: Participant, context: RoundContext): ActorDecision;
 }
 
 export type RoundResult = {
@@ -24,6 +33,7 @@ export type RoundResult = {
 
 export type RunOptions = {
   deck?: Deck;
+  abilityEngine?: AbilityCardEngine;
 };
 
 export class TurnController {
@@ -35,8 +45,9 @@ export class TurnController {
 
   run(playerStrategy: ActorStrategy, enemyStrategy: ActorStrategy, options: RunOptions = {}): RoundResult {
     this.round.start(options.deck);
+    const abilityEngine = options.abilityEngine ?? NoAbilityCardEngine.instance;
 
-    this.executePhase('player', playerStrategy);
+    this.executePhase('player', playerStrategy, abilityEngine);
     const playerScore = this.round.getHandScore('player');
 
     if (playerScore.busted) {
@@ -44,7 +55,7 @@ export class TurnController {
       return this.finishRound();
     }
 
-    this.executePhase('enemy', enemyStrategy);
+    this.executePhase('enemy', enemyStrategy, abilityEngine);
     const enemyScore = this.round.getHandScore('enemy');
     if (enemyScore.busted) {
       this.events.emit('bust', { actor: 'enemy', score: enemyScore });
@@ -53,17 +64,25 @@ export class TurnController {
     return this.finishRound();
   }
 
-  private executePhase(participant: Participant, strategy: ActorStrategy): void {
+  private executePhase(participant: Participant, strategy: ActorStrategy, abilityEngine: AbilityCardEngine): void {
     while (true) {
       const score = this.round.getHandScore(participant);
       if (score.busted || this.round.hasStood(participant)) {
         break;
       }
 
-      const context = this.createContext(participant);
+      const context = this.createContext(participant, abilityEngine);
       const decision = strategy.decide(participant, context);
 
-      if (decision === 'hit') {
+      if (decision.type === 'playCard') {
+        const played = abilityEngine.playCard(participant, decision.cardId);
+        if (!played) {
+          break;
+        }
+        continue;
+      }
+
+      if (decision.type === 'hit') {
         this.round.hit(participant);
       } else {
         this.round.stand(participant);
@@ -72,7 +91,7 @@ export class TurnController {
       if (this.round.isBust(participant)) {
         break;
       }
-      if (decision === 'stand') {
+      if (decision.type === 'stand') {
         break;
       }
     }
@@ -86,12 +105,14 @@ export class TurnController {
     return { outcome, player, enemy };
   }
 
-  private createContext(participant: Participant): RoundContext {
+  private createContext(participant: Participant, abilityEngine: AbilityCardEngine): RoundContext {
     const snapshot = this.round.getSnapshot();
     return {
       self: participant === 'player' ? snapshot.player : snapshot.enemy,
       opponent: participant === 'player' ? snapshot.enemy : snapshot.player,
-      deckRemaining: snapshot.deckRemaining
+      deckRemaining: snapshot.deckRemaining,
+      abilityHand: abilityEngine.getHand(participant),
+      ruleSnapshot: abilityEngine.getRuleSnapshot()
     };
   }
 }

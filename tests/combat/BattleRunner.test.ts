@@ -16,7 +16,7 @@ const createRunner = () => {
   const round = new BlackjackRound(undefined, rules);
   const bus = new BlackjackEventBus();
   const controller = new TurnController(round, rules, bus);
-  const combat = new CombatSystem(controller);
+  const combat = new CombatSystem(controller, round);
   const runner = new BattleRunner(combat);
   return runner;
 };
@@ -34,7 +34,8 @@ const decks: Deck[] = [
     createCard('9', 'spades'),
     createCard('9', 'diamonds'),
     createCard('7', 'clubs'),
-    createCard('2', 'hearts')
+    createCard('2', 'hearts'),
+    createCard('5', 'clubs')
   ]),
   Deck.fromTopDown([
     createCard('9', 'clubs'),
@@ -42,21 +43,24 @@ const decks: Deck[] = [
     createCard('6', 'hearts'),
     createCard('7', 'spades'),
     createCard('8', 'hearts'),
-    createCard('9', 'diamonds')
+    createCard('9', 'diamonds'),
+    createCard('4', 'clubs')
   ]),
   Deck.fromTopDown([
     createCard('10', 'clubs'),
     createCard('8', 'hearts'),
     createCard('9', 'spades'),
     createCard('7', 'diamonds'),
-    createCard('10', 'hearts')
+    createCard('10', 'hearts'),
+    createCard('6', 'diamonds')
   ]),
   Deck.fromTopDown([
     createCard('10', 'spades'),
     createCard('9', 'clubs'),
     createCard('8', 'diamonds'),
     createCard('7', 'hearts'),
-    createCard('3', 'clubs')
+    createCard('3', 'clubs'),
+    createCard('4', 'hearts')
   ])
 ];
 

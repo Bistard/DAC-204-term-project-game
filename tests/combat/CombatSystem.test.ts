@@ -17,7 +17,7 @@ const createCombatSetup = () => {
   const round = new BlackjackRound(undefined, rules);
   const bus = new BlackjackEventBus();
   const controller = new TurnController(round, rules, bus);
-  const combat = new CombatSystem(controller);
+  const combat = new CombatSystem(controller, round);
 
   const player = new Player({
     name: 'Tester',

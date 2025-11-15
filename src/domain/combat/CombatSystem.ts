@@ -4,6 +4,9 @@ import { Enemy } from './Enemy';
 import { CombatConfig, DEFAULT_COMBAT_CONFIG } from './CombatConfig';
 import { RoundOutcome, HandScore } from '../blackjack/BlackjackRules';
 import { Participant } from '../blackjack/Participant';
+import { BlackjackRound } from '../blackjack/BlackjackRound';
+import { CombatAbilityCardEngine } from './AbilityCardEngine';
+import { CardEffectExecutor } from '../cards/CardEffectExecutor';
 
 export type CombatRoundSummary = {
   outcome: RoundOutcome;
@@ -17,10 +20,20 @@ export type CombatRoundSummary = {
 };
 
 export class CombatSystem {
-  constructor(private readonly controller: TurnController, private readonly config: CombatConfig = DEFAULT_COMBAT_CONFIG) {}
+  private readonly effectExecutor = new CardEffectExecutor();
+
+  constructor(
+    private readonly controller: TurnController,
+    private readonly round: BlackjackRound,
+    private readonly config: CombatConfig = DEFAULT_COMBAT_CONFIG
+  ) {}
 
   executeRound(player: Player, enemy: Enemy, options?: RunOptions): CombatRoundSummary {
-    const result = this.controller.run(player.strategy, enemy.strategy, options);
+    const abilityEngine = new CombatAbilityCardEngine(this.round, player, enemy, this.effectExecutor);
+    const result = this.controller.run(player.strategy, enemy.strategy, {
+      ...options,
+      abilityEngine
+    });
     return this.resolveDamage(result, player, enemy);
   }
 

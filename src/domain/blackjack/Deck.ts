@@ -32,6 +32,11 @@ export class Deck {
     return card;
   }
 
+  peek(count = 1): Card[] {
+    if (count <= 0) return [];
+    return this.cards.slice(0, count);
+  }
+
   remaining(): number {
     return this.cards.length;
   }

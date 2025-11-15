@@ -1,5 +1,6 @@
 import { Enemy } from '../Enemy';
 import { ThresholdStrategy } from '../../blackjack/strategies/ThresholdStrategy';
+import { getAbilityCardsById } from '../../../content/cards/abilityCards';
 
 export class DefensiveEnemy extends Enemy {
   constructor() {
@@ -8,7 +9,8 @@ export class DefensiveEnemy extends Enemy {
       maxHp: 55,
       baseAttack: 9,
       description: 'Plays safe and stands on lower totals to avoid busts.',
-      strategy: new ThresholdStrategy(16)
+      strategy: new ThresholdStrategy(16, { cardPlayThreshold: 14 })
     });
+    this.setAbilityLoadout(getAbilityCardsById(['guardian-wall', 'tune-minus-one']));
   }
 }

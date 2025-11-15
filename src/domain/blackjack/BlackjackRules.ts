@@ -9,7 +9,7 @@ export type HandScore = {
 export type RoundOutcome = 'playerWin' | 'enemyWin' | 'push';
 
 export class BlackjackRules {
-  calculateScore(cards: readonly Card[]): HandScore {
+  calculateScore(cards: readonly Card[], targetLimit = 21): HandScore {
     let total = 0;
     let aceCount = 0;
 
@@ -21,7 +21,7 @@ export class BlackjackRules {
     }
 
     let soft = aceCount > 0;
-    while (total > 21 && aceCount > 0) {
+    while (total > targetLimit && aceCount > 0) {
       total -= 10;
       aceCount -= 1;
       if (aceCount === 0) {
@@ -29,7 +29,7 @@ export class BlackjackRules {
       }
     }
 
-    const busted = total > 21;
+    const busted = total > targetLimit;
     if (busted) {
       soft = false;
     }

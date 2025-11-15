@@ -3,6 +3,7 @@ import { Deck } from './Deck';
 import { Hand } from './Hand';
 import { Card } from './Card';
 import { Participant, getOpponent } from './Participant';
+import { RoundModifierState } from './RoundModifierState';
 
 type ParticipantState = {
   stood: boolean;
@@ -25,6 +26,7 @@ export class BlackjackRound {
   private readonly enemyHand = new Hand();
   private readonly playerState: ParticipantState = { stood: false };
   private readonly enemyState: ParticipantState = { stood: false };
+  private readonly modifiers = new RoundModifierState();
 
   constructor(private deck: Deck = Deck.standardShuffled(), private readonly rules: BlackjackRules) {}
 
@@ -34,6 +36,7 @@ export class BlackjackRound {
     this.enemyHand.clear();
     this.playerState.stood = false;
     this.enemyState.stood = false;
+    this.modifiers.reset();
     this.dealOpeningHands();
   }
 
@@ -53,7 +56,8 @@ export class BlackjackRound {
 
   getHandScore(participant: Participant): HandScore {
     const hand = this.getHand(participant);
-    return this.rules.calculateScore(hand.getCards());
+    const base = this.rules.calculateScore(hand.getCards(), this.modifiers.getTargetLimit());
+    return this.modifiers.applyToScore(participant, base);
   }
 
   isBust(participant: Participant): boolean {
@@ -74,6 +78,56 @@ export class BlackjackRound {
       opponent: this.getHandView(getOpponent(participant)),
       deckRemaining: this.deck.remaining()
     };
+  }
+
+  getModifiers(): RoundModifierState {
+    return this.modifiers;
+  }
+
+  convertHighestCardToAce(participant: Participant): boolean {
+    const hand = this.getHand(participant);
+    const cards = [...hand.getCards()];
+
+    let targetIndex = -1;
+    let highestValue = -1;
+
+    cards.forEach((card, index) => {
+      if (card.rank === 'A') {
+        return;
+      }
+      const numeric = this.rules.calculateScore([card]).total;
+      if (numeric > highestValue) {
+        highestValue = numeric;
+        targetIndex = index;
+      }
+    });
+
+    if (targetIndex < 0) {
+      return false;
+    }
+
+    const card = cards[targetIndex];
+    hand.setCard(targetIndex, { ...card, rank: 'A' });
+    return true;
+  }
+
+  peekUpcomingCards(count = 1): readonly Card[] {
+    return this.deck.peek(count);
+  }
+
+  forceDraw(participant: Participant): void {
+    this.getState(participant).stood = false;
+    this.hit(participant);
+  }
+
+  swapFirstCards(): boolean {
+    const playerFirst = this.playerHand.getCard(0);
+    const enemyFirst = this.enemyHand.getCard(0);
+    if (!playerFirst || !enemyFirst) {
+      return false;
+    }
+    this.playerHand.swapFirstCard(this.enemyHand);
+    return true;
   }
 
   private dealOpeningHands(): void {
@@ -100,7 +154,7 @@ export class BlackjackRound {
     const hand = this.getHand(participant);
     return {
       cards: [...hand.getCards()],
-      score: this.rules.calculateScore(hand.getCards()),
+      score: this.getHandScore(participant),
       stood: this.getState(participant).stood
     };
   }
