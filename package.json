@@ -1,0 +1,23 @@
+{
+  "name": "dac-204-term-project-game",
+  "version": "1.0.0",
+  "description": "Minimal TypeScript + HTML + CSS scaffold ready for GitHub Pages.",
+  "scripts": {
+    "clean": "node ./scripts/clean-dist.cjs",
+    "build": "npm run clean && tsc && node ./scripts/copy-static.cjs",
+    "dev": "tsc --watch --preserveWatchOutput",
+    "preview": "http-server dist -p 4173 -c-1",
+    "start": "npm run build && npm run preview"
+  },
+  "keywords": [
+    "typescript",
+    "frontend",
+    "github-pages"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "http-server": "^14.1.1",
+    "typescript": "^5.9.3"
+  }
+}
