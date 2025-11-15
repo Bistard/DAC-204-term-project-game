@@ -1,4 +1,4 @@
-import { TurnController, RunOptions, RoundResult } from '../blackjack/TurnController';
+import { TurnController, RunOptions, RoundResult, TurnHooks } from '../blackjack/TurnController';
 import { Player } from './Player';
 import { Enemy } from './Enemy';
 import { CombatConfig, DEFAULT_COMBAT_CONFIG } from './CombatConfig';
@@ -7,6 +7,7 @@ import { Participant } from '../blackjack/Participant';
 import { BlackjackRound } from '../blackjack/BlackjackRound';
 import { CombatAbilityCardEngine } from './AbilityCardEngine';
 import { CardEffectExecutor } from '../cards/CardEffectExecutor';
+import { EnemyBehaviorContext } from './EnemyBehavior';
 
 export type CombatRoundSummary = {
   outcome: RoundOutcome;
@@ -30,9 +31,23 @@ export class CombatSystem {
 
   executeRound(player: Player, enemy: Enemy, options?: RunOptions): CombatRoundSummary {
     const abilityEngine = new CombatAbilityCardEngine(this.round, player, enemy, this.effectExecutor);
+    const behaviors = enemy.getBehaviors();
+    const behaviorContext: EnemyBehaviorContext = { round: this.round, player, enemy };
+    behaviors.forEach((behavior) => behavior.onRoundStart?.(behaviorContext));
+
+    const combinedHooks: TurnHooks = {
+      beforeTurn: (participant) => {
+        options?.hooks?.beforeTurn?.(participant);
+        if (participant === 'enemy') {
+          behaviors.forEach((behavior) => behavior.onBeforeEnemyTurn?.(behaviorContext));
+        }
+      }
+    };
+
     const result = this.controller.run(player.strategy, enemy.strategy, {
       ...options,
-      abilityEngine
+      abilityEngine,
+      hooks: combinedHooks
     });
     return this.resolveDamage(result, player, enemy);
   }

@@ -9,7 +9,7 @@
     "preview": "http-server dist -p 4173 -c-1",
     "start": "npm run build && npm run preview",
     "test": "npm run test:unit",
-    "test:unit": "ts-node --project tsconfig.tests.json tests/blackjack/BlackjackRules.test.ts && ts-node --project tsconfig.tests.json tests/blackjack/TurnController.test.ts && ts-node --project tsconfig.tests.json tests/cards/CardSystem.test.ts && ts-node --project tsconfig.tests.json tests/combat/CombatSystem.test.ts && ts-node --project tsconfig.tests.json tests/combat/BattleRunner.test.ts"
+    "test:unit": "ts-node --project tsconfig.tests.json tests/blackjack/BlackjackRules.test.ts && ts-node --project tsconfig.tests.json tests/blackjack/TurnController.test.ts && ts-node --project tsconfig.tests.json tests/cards/CardSystem.test.ts && ts-node --project tsconfig.tests.json tests/enemies/EnemyFactory.test.ts && ts-node --project tsconfig.tests.json tests/combat/CombatSystem.test.ts && ts-node --project tsconfig.tests.json tests/combat/BattleRunner.test.ts && ts-node --project tsconfig.tests.json tests/survival/SurvivalModeController.test.ts"
   },
   "keywords": [
     "typescript",

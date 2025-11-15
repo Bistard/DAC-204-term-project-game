@@ -31,9 +31,14 @@ export type RoundResult = {
   enemy: HandScore;
 };
 
+export type TurnHooks = {
+  beforeTurn?: (participant: Participant) => void;
+};
+
 export type RunOptions = {
   deck?: Deck;
   abilityEngine?: AbilityCardEngine;
+  hooks?: TurnHooks;
 };
 
 export class TurnController {
@@ -46,8 +51,9 @@ export class TurnController {
   run(playerStrategy: ActorStrategy, enemyStrategy: ActorStrategy, options: RunOptions = {}): RoundResult {
     this.round.start(options.deck);
     const abilityEngine = options.abilityEngine ?? NoAbilityCardEngine.instance;
+    const hooks = options.hooks ?? {};
 
-    this.executePhase('player', playerStrategy, abilityEngine);
+    this.executePhase('player', playerStrategy, abilityEngine, hooks);
     const playerScore = this.round.getHandScore('player');
 
     if (playerScore.busted) {
@@ -55,7 +61,7 @@ export class TurnController {
       return this.finishRound();
     }
 
-    this.executePhase('enemy', enemyStrategy, abilityEngine);
+    this.executePhase('enemy', enemyStrategy, abilityEngine, hooks);
     const enemyScore = this.round.getHandScore('enemy');
     if (enemyScore.busted) {
       this.events.emit('bust', { actor: 'enemy', score: enemyScore });
@@ -64,7 +70,14 @@ export class TurnController {
     return this.finishRound();
   }
 
-  private executePhase(participant: Participant, strategy: ActorStrategy, abilityEngine: AbilityCardEngine): void {
+  private executePhase(
+    participant: Participant,
+    strategy: ActorStrategy,
+    abilityEngine: AbilityCardEngine,
+    hooks: TurnHooks
+  ): void {
+    hooks.beforeTurn?.(participant);
+
     while (true) {
       const score = this.round.getHandScore(participant);
       if (score.busted || this.round.hasStood(participant)) {

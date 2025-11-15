@@ -1,6 +1,7 @@
 import { ActorStrategy } from '../blackjack/TurnController';
 import { Participant } from '../blackjack/Participant';
 import { AbilityCardDefinition, AbilityCardInstance } from '../cards/CardTypes';
+import { EnemyBehavior } from './EnemyBehavior';
 
 let abilityInstanceCounter = 0;
 
@@ -28,6 +29,7 @@ export class Combatant {
   private shield = 0;
   private readonly abilityCards: AbilityCardInstance[] = [];
   private baseAbilityDefinitions: AbilityCardDefinition[] = [];
+  private behaviors: EnemyBehavior[] = [];
 
   constructor(props: CombatantProps) {
     this.id = props.id;
@@ -44,8 +46,7 @@ export class Combatant {
 
   reset(): void {
     this.hp = this.maxHp;
-    this.shield = 0;
-    this.rebuildAbilityHand();
+    this.refreshLoadout();
   }
 
   applyDamage(amount: number): number {
@@ -60,6 +61,11 @@ export class Combatant {
 
     this.hp = Math.max(0, this.hp - remaining);
     return remaining;
+  }
+
+  refreshLoadout(): void {
+    this.shield = 0;
+    this.rebuildAbilityHand();
   }
 
   isDefeated(): boolean {
@@ -115,5 +121,13 @@ export class Combatant {
     for (const definition of this.baseAbilityDefinitions) {
       this.grantAbilityCard(definition);
     }
+  }
+
+  setBehaviors(behaviors: EnemyBehavior[]): void {
+    this.behaviors = behaviors;
+  }
+
+  getBehaviors(): readonly EnemyBehavior[] {
+    return this.behaviors;
   }
 }

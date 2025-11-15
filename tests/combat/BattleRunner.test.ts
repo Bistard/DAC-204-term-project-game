@@ -6,7 +6,7 @@ import { TurnController } from '../../src/domain/blackjack/TurnController';
 import { CombatSystem } from '../../src/domain/combat/CombatSystem';
 import { BattleRunner } from '../../src/domain/combat/BattleRunner';
 import { Player } from '../../src/domain/combat/Player';
-import { GreedyGhost } from '../../src/domain/combat/enemies/GreedyGhost';
+import { EnemyFactory } from '../../src/domain/combat/EnemyFactory';
 import { ThresholdStrategy } from '../../src/domain/blackjack/strategies/ThresholdStrategy';
 import { Deck } from '../../src/domain/blackjack/Deck';
 import { createCard } from '../../src/domain/blackjack/Card';
@@ -64,9 +64,16 @@ const decks: Deck[] = [
   ])
 ];
 
+const enemyFactory = new EnemyFactory();
+
 (() => {
   const runner = createRunner();
-  const enemy = new GreedyGhost();
+  const enemyDefinition = enemyFactory.getDefinition('greedy-ghost');
+  if (!enemyDefinition) {
+    throw new Error('Missing greedy-ghost definition');
+  }
+  const enemy = enemyFactory.create(enemyDefinition.id);
+  enemy.setAbilityLoadout([]);
   const result = runner.fight(player, enemy, { deckSequence: decks });
 
   assert.equal(result.winner, 'player');

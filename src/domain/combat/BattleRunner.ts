@@ -16,14 +16,28 @@ export type BattleResult = {
 export type BattleOptions = {
   maxRounds?: number;
   deckSequence?: Deck[];
+  resetPlayer?: boolean;
+  resetEnemy?: boolean;
 };
 
 export class BattleRunner {
   constructor(private readonly combatSystem: CombatSystem) {}
 
   fight(player: Player, enemy: Enemy, options: BattleOptions = {}): BattleResult {
-    player.reset();
-    enemy.reset();
+    const resetPlayer = options.resetPlayer ?? true;
+    const resetEnemy = options.resetEnemy ?? true;
+
+    if (resetPlayer) {
+      player.reset();
+    } else {
+      player.refreshLoadout();
+    }
+
+    if (resetEnemy) {
+      enemy.reset();
+    } else {
+      enemy.refreshLoadout();
+    }
 
     const battleLog: BattleLogEntry[] = [];
     const maxRounds = options.maxRounds ?? 50;

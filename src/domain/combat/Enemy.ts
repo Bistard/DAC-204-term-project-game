@@ -22,4 +22,5 @@ export class Enemy extends Combatant {
     });
     this.description = description;
   }
+
 }

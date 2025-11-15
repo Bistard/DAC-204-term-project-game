@@ -1,7 +1,7 @@
 import { BlackjackRules, HandScore } from './BlackjackRules';
 import { Deck } from './Deck';
 import { Hand } from './Hand';
-import { Card } from './Card';
+import { Card, getRankValue } from './Card';
 import { Participant, getOpponent } from './Participant';
 import { RoundModifierState } from './RoundModifierState';
 
@@ -127,6 +127,29 @@ export class BlackjackRound {
       return false;
     }
     this.playerHand.swapFirstCard(this.enemyHand);
+    return true;
+  }
+
+  downgradeHighestCard(participant: Participant): boolean {
+    const hand = this.getHand(participant);
+    const cards = [...hand.getCards()];
+    if (cards.length === 0) {
+      return false;
+    }
+
+    let targetIndex = 0;
+    let highestValue = -Infinity;
+
+    cards.forEach((card, index) => {
+      const value = getRankValue(card.rank);
+      if (value > highestValue) {
+        highestValue = value;
+        targetIndex = index;
+      }
+    });
+
+    const targetCard = cards[targetIndex];
+    hand.setCard(targetIndex, { ...targetCard, rank: '2' });
     return true;
   }
 
