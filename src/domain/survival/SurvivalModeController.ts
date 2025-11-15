@@ -22,6 +22,7 @@ export type SurvivalRunResult = {
 export type SurvivalOptions = {
   maxWaves?: number;
   battleDecks?: Deck[][];
+  unlockedEnemyIds?: string[];
 };
 
 export class SurvivalModeController {
@@ -38,7 +39,7 @@ export class SurvivalModeController {
         break;
       }
 
-      const definition = this.enemyFactory.pickForWave(wave);
+      const definition = this.enemyFactory.pickForWave(wave, options.unlockedEnemyIds);
       const enemy = this.enemyFactory.create(definition.id, { waveNumber: wave });
 
       const deckSequence = options.battleDecks?.[wave - 1];

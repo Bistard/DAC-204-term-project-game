@@ -40,8 +40,8 @@ export class EnemyFactory {
     return enemy;
   }
 
-  pickForWave(waveNumber: number): EnemyDefinition {
-    const available = this.getUnlockedDefinitions(waveNumber);
+  pickForWave(waveNumber: number, unlockedEnemyIds?: string[]): EnemyDefinition {
+    const available = this.getUnlockedDefinitions(waveNumber, unlockedEnemyIds);
     if (available.length === 0) {
       throw new Error(`No enemies unlocked for wave ${waveNumber}`);
     }
@@ -49,8 +49,13 @@ export class EnemyFactory {
     return available[index];
   }
 
-  getUnlockedDefinitions(waveNumber: number): EnemyDefinition[] {
-    return this.definitions.filter((def) => def.unlockWave <= waveNumber);
+  getUnlockedDefinitions(waveNumber: number, unlockedEnemyIds?: string[]): EnemyDefinition[] {
+    return this.definitions.filter((def) => {
+      if (unlockedEnemyIds && unlockedEnemyIds.length > 0 && !unlockedEnemyIds.includes(def.id)) {
+        return false;
+      }
+      return def.unlockWave <= waveNumber;
+    });
   }
 
   getDefinition(id: string): EnemyDefinition | undefined {
