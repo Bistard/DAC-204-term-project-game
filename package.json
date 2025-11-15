@@ -7,7 +7,9 @@
     "build": "npm run clean && tsc && node ./scripts/copy-static.cjs",
     "dev": "tsc --watch --preserveWatchOutput",
     "preview": "http-server dist -p 4173 -c-1",
-    "start": "npm run build && npm run preview"
+    "start": "npm run build && npm run preview",
+    "test": "npm run test:blackjack",
+    "test:blackjack": "ts-node --project tsconfig.tests.json tests/blackjack/BlackjackRules.test.ts && ts-node --project tsconfig.tests.json tests/blackjack/TurnController.test.ts"
   },
   "keywords": [
     "typescript",
@@ -18,6 +20,7 @@
   "license": "MIT",
   "devDependencies": {
     "http-server": "^14.1.1",
+    "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
   }
 }
