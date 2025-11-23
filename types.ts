@@ -173,3 +173,5 @@ export type GameEvent =
     | { type: 'clash.state'; payload: ClashState };
 
 export type GameEventListener = (event: GameEvent) => void;
+
+export type MetaUpdater = (updater: (prev: MetaState) => MetaState) => void;

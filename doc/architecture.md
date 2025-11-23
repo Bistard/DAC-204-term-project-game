@@ -1,28 +1,28 @@
 # 游戏架构说明
 
-> 适用阅读者：需要快速理解 “Last Hand” 的工程结构、核心循环与扩展点的程序员 / 设计师。建议先浏览 `types.ts` 与 `constants.ts` 了解术语，再对照本说明定位模块。
+> 适用阅读者：需要快速理解 “Last Hand” 的工程结构、核心循环与扩展点的程序员 / 设计师。建议先浏览 `types.ts`、`constants.ts` 了解术语，再结合本文定位模块。
 
 ## 1. 系统分层概览
 
-| 层 | 主要文件 | 职责 |
+| 层级 | 主要文件 | 职责 |
 | --- | --- | --- |
-| 数据定义层 | `types.ts`, `constants.ts` | 统一枚举/接口、平衡参数、默认值 |
-| 内容配置层 | `content/*.ts` | 数据驱动的物品、敌人、环境、事件定义 |
-| 引擎层 | `engine/*.ts` | 回合逻辑、AI、伤害结算、事件广播、元进度 |
-| 状态存储层 | `engine/state/*.ts` | `GameState` 初始化、快照、订阅/发布 |
-| React 集成层 | `context/GameContext.tsx` | 将引擎封装成 React hook + 本地存档 |
-| 表现层 | `components/*.tsx`, `App.tsx` | 各游戏阶段界面、动画、交互 |
-| 文档/设计层 | `doc/*.md` | 例如 `level-system.md` 与本文，描述玩法与后续规划 |
+| 数据定义层 | `types.ts`, `constants.ts` | 共用类型、平衡参数、默认值 |
+| 内容配置层 | `content/*.ts` | 数据驱动的敌人、物品、环境、事件 |
+| 引擎层 | `engine/gameEngine.ts`, `engine/services/*` | `CombatService` 驱动战斗循环；`RewardService` 负责奖励/进度；`GameEngine` 作为统一门面 |
+| 状态存储层 | `engine/state/*.ts` | `GameState` 初始化、快照、发布订阅 |
+| React 集成层 | `context/GameContext.tsx` | 将引擎封装为 Hook，管理本地存档 |
+| 表现层 | `components/*.tsx`, `App.tsx` | 各阶段 UI、动画、交互 |
+| 文档/设计层 | `doc/*.md` | 玩法规则、路线规划（例如 `level-system.md`） |
 
 ### 运行时数据流
 
 ```
-UI 交互 (components) 
+UI 交互 (components)
     ↓ 调用
 GameContext (actions, metaState)
     ↓ 委派
 GameEngine (engine/gameEngine.ts)
-    ↓ 写
+    ↓ 写入
 GameStore → GameSnapshot
     ↑ 订阅
 GameContext 状态 → 触发渲染 → 订阅 EventBus 处理动画
@@ -30,9 +30,9 @@ GameContext 状态 → 触发渲染 → 订阅 EventBus 处理动画
 
 ## 2. 核心数据与配置
 
-- `types.ts`：集中声明 `GameState`, `GamePhase`, `Enemy`, `ItemDefinition`, `EnvironmentCard`, `LogicEffectConfig` 等。所有模块共享这些类型，减少魔法字符串。  
-- `constants.ts`：平衡参数（初始 HP、目标分、奖励上限、AI 阈值、动画延迟、升级费用等）均在这里维护，方便调优与 A/B Testing。  
-- Meta 进度 (`MetaState`)：包含 `gold` 及 `upgrades`（HP 与物品栏各自的等级/成本），由 `GameContext` 写入 `localStorage`，保证浏览器内持久化。
+- `types.ts`：集中声明 `GameState`, `GamePhase`, `Enemy`, `ItemDefinition`, `EnvironmentCard`, `LogicEffectConfig` 等，让不同系统避免魔法字符串。
+- `constants.ts`：保存所有可调参数（HP、目标分、奖励上限、AI 阈值、动画延迟、升级费用……），方便统一调平。
+- Meta 进度 (`MetaState`)：包含 `gold` 与 `upgrades`，由 `GameContext` 存入 `localStorage`，保证浏览器端持久化。
 
 ## 3. 状态管理与快照
 
@@ -40,143 +40,124 @@ GameContext 状态 → 触发渲染 → 订阅 EventBus 处理动画
 
 `engine/state/gameState.ts` 提供：
 
-- `createInitialGameState(metaState)`：根据玩家元进度设置 HP、背包等，默认阶段为 `MENU`。
-- `cloneGameState` / `applyEnemyUpdate`：提供不可变操作的辅助方法，便于在引擎中安全地修改嵌套结构。
-- `defaultRuntimeFlags`：`isDealing`, `isProcessingAI`, `isResolvingRound`。这些短期标记会和视图联动（禁用按钮、展示动画）。
+- `createInitialGameState(metaState)`：根据玩家升级设置初始 HP、背包容量等，默认阶段为 `MENU`。
+- `cloneGameState` / `applyEnemyUpdate`：提供不可变操作的辅助方法。
+- `defaultRuntimeFlags`：`isDealing`, `isProcessingAI`, `isResolvingRound`，与 UI 的禁用/动画状态绑定。
 
 ### GameStore
 
-`engine/state/gameStore.ts` 是一个极简的发布/订阅存储：
+`engine/state/gameStore.ts` 是一个极简发布/订阅存储：
 
 - `state` 保存 `GameState`，`flags` 保存运行标记。
-- `snapshot` 由 `createSnapshot` 组合 state + flags，确保监听者拿到一致的数据切片。
-- `subscribe` 立即推送一次快照，并在状态更新时重放，供 `GameContext` 绑定到 React。
+- `snapshot` 使用 `createSnapshot` 合并 state + flags，保证监听者拿到一致的数据。
+- `subscribe` 会立即推送一次快照，并在更新后广播，供 `GameContext` 同步到 React。
 
 ## 4. Run / Round 生命周期
 
-`engine/gameEngine.ts` 是核心调度者，构造时注入：
+`GameEngine` 仅充当门面：构造时注入 `EventBus` 以及 meta 读写方法，然后实例化
 
-- `EventBus`（动画/提示）
-- `getMetaState` / `updateMetaState`（访问本地存档）
+- `CombatService`（`engine/services/combatService.ts`）：处理 Run 启动、发牌、AI、道具效果、环境动画、伤害结算。
+- `RewardService`（`engine/services/rewardService.ts`）：处理胜利阶段、奖励掉落、关卡推进、升级/金币经济。
+
+两者共用 `GameStore` 快照，也会调用 `EventBus` 推送动画事件。
 
 主要流程：
 
 1. **`startRun`**  
-   - 根据当前升级重启 `GameStore`，生成敌人/环境卡 (`getRandomEnemy`, `getRandomEnvironment`)。  
+   - 基于当前升级重置 `GameStore`，生成初始敌人与环境卡。  
    - 进入 `GamePhase.BATTLE` 并调用 `startRound`。
 
 2. **`startRound`**  
-   - 使用 `createDeck`（11 张单花色牌 + Fisher-Yates 洗牌）。  
-   - 执行环境卡动画（`playEnvironmentSequence`，通过 `EventBus` 驱动 UI）。  
-   - 依次发牌、强制翻牌（受环境效果 `FORCE_REVEAL` 影响）、首回合发道具。  
-   - 设置 `turnOwner='PLAYER'`，等待玩家操作。
+   - 使用 `createDeck`（11 张单花色卡牌 + Fisher-Yates 洗牌）。  
+   - 若首轮存在环境卡，播放 `playEnvironmentSequence` 动画。  
+   - 发牌、翻开强制明牌（环境效果可能影响），首轮按升级额外发道具。  
+   - 将 `turnOwner` 设为 `PLAYER`，等待操作。
 
 3. **玩家/敌人行动**  
    - `hit` / `stand` / `useItem` 对应 UI 按钮。  
-   - `hit`：抽牌 → `sleep` 延迟 → 翻牌 → 计算分数。  
-   - `useItem`：通过 `EventBus` 发射 `item.animation`，消耗背包并调用 `applyItemEffects`（当前支持 `HEAL`/`SHIELD`/`DRAW`，扩展见下文）。  
-   - 敌人由 `queueAiTurn` 调度，按照模板 AI (`GREEDY`/`DEFENSIVE`/`RANDOM`) 在 `processAiTurn` 中决定是否继续抽牌。
+   - `hit`：抽牌 → 延迟 → 翻牌 → 重新计分。  
+   - `useItem`：通过 `EventBus` 播放 `item.animation`，随后 `CombatService.applyItemEffects` 处理 `HEAL`/`SHIELD`/`DRAW` 等效果。  
+   - 敌人通过 `queueAiTurn` 调度，在 `processAiTurn` 中依据 AI 配置评估是否继续抽牌。
 
-4. **回合结束 & 结算**  
-   - 当双方 `playerStood && enemyStood` 时，`resolveRound`：翻开所有牌 → 计算 Clash 结果 → `EventBus` 推送 `clash.state`。  
-   - `resolveDamage`：根据胜负、爆牌与环境倍率处理伤害/护盾，播放数值提示，判断死亡。  
-   - 事件触发：胜利时调用 `applyEventTrigger('ENEMY_DEFEATED')`，若刚好达成目标分则触发 `PERFECT_SCORE`（用于金币奖励）。
+4. **回合结束与结算**  
+   - 当 `playerStood && enemyStood` 时触发 `resolveRound`：翻开所有牌、计算 Clash 结果、广播 `clash.state`。  
+   - `resolveDamage`：结合结果、爆牌与环境倍率计算伤害/护盾，并触发数值提示。  
+   - 若达成完美得分、击败敌人等事件，调用 `RewardService.applyEventTrigger` 发放奖励。
 
 5. **阶段切换**  
-   - 敌人死亡 → `GamePhase.VICTORY` → 玩家领取奖励（`proceedToRewards` → `GamePhase.REWARD`）。  
-   - 奖励阶段 `pickReward` 使用 `REWARD_PICK_LIMIT` 控制选择次数并检查背包容量。  
-   - 领取完毕 → `nextLevel`：重置敌人、环境、目标分，回到步骤 1。  
-   - 玩家 HP ≤ 0 → `GamePhase.GAME_OVER` → 可返回菜单。
+   - 敌人死亡 → `GamePhase.VICTORY` → `proceedToRewards` → `GamePhase.REWARD`。  
+   - 奖励阶段 `pickReward` 受 `REWARD_PICK_LIMIT` 与背包容量约束。  
+   - 完成奖励或手动继续 → `nextLevel`：重置敌人、环境、分数，回到步骤 1。  
+   - 玩家 HP ≤ 0 → `GamePhase.GAME_OVER`，可回菜单。
 
 ## 5. 引擎子系统
 
-- **牌堆与随机工具 (`engine/utils.ts`)**  
-  - `calculateScore` 负责 Ace 的 11/1 动态调整。  
-  - `sleep` 用于在同步逻辑中串联视觉节奏。  
-  - `getRandomItems` / `getRandomEnemy` / `getRandomEnvironment` 统一 RNG 出口，便于以后替换为种子随机数。
+- **牌堆 / 随机工具（`engine/utils.ts`）**  
+  - `calculateScore` 处理 Ace 11/1 的动态调整。  
+  - `sleep` 协调异步动画。  
+  - `getRandomItems`/`getRandomEnemy`/`getRandomEnvironment` 统一 RNG 出口，方便未来替换为种子随机数。
 
-- **环境卡 (`applyEnvironmentRules`, `getDamageMultiplier`, `getForcedRevealCount`)**  
-  - 每张环境卡都是持续的逻辑效果，`SET_TARGET_SCORE` 与 `FORCE_REVEAL` 会在回合开始时立即改变目标分或明牌数量。
+- **环境规则（`runStateUtils.ts`, `getDamageMultiplier`, `getForcedRevealCount`）**  
+  - 集中处理 `SET_TARGET_SCORE`, `FORCE_REVEAL`, `DAMAGE_MULTIPLIER` 等影响，Combat/Reward 两个服务共享逻辑。
 
-- **物品系统 (`applyItemEffects`)**  
-  - 效果与 `LogicEffectConfig` 对应，未来只需在 `switch` 中扩展新的 `effect.type` 即可支持更多玩法。
+- **物品系统（`CombatService.applyItemEffects`）**  
+  - 与 `LogicEffectConfig` 一一对应，只需在 `switch` 中扩展新的 `effect.type` 即可新增玩法。
 
-- **事件系统 (`content/events.ts`)**  
-  - 每个事件定义 `trigger` + 一组 `effects`。打败敌人或达成完美得分时调用 `applyEventTrigger`，事件本身只描述数据，逻辑完全由引擎负责，使得新增经济/剧情事件变得简单。
+- **事件 / 经济系统（`content/events.ts`, `RewardService.applyEventTrigger`）**  
+  - 事件描述纯数据，RewardService 负责执行金币发放、计入 `goldEarnedThisLevel`，并通过 `RewardService.resolveGoldEffect` 支持等级系数。
 
-- **元进度 / 经济 (`buyUpgrade`, `applyEventEffect`)**  
-  - 升级消耗 `gold`，成本表 `COST_UPGRADE_HP/INVENTORY` 定义在常量里。  
-  - 奖励金币通过事件与 `resolveGoldEffect` 计算（可携带 `metadata.perLevelOffset`，按照关卡级别动态 scaling）。
-
-- **AI Scheduler**  
-  - 借助 `setTimeout` 形成伪异步 AI，让敌人行动与动画可视化同步。  
-  - `aiTimer` 与 `clearAiTimer` 确保在玩家提前结束回合时不会触发过期动作。
+- **AI 调度**  
+  - `queueAiTurn`/`processAiTurn` 结合 `setTimeout` 形成可视化节奏，并在玩家提前结束时通过 `clearAiTimer` 取消。
 
 ## 6. React 集成与表现层
 
 ### GameProvider (`context/GameContext.tsx`)
 
-- 创建 `EventBus` 与 `GameEngine` 单例，使用 `useRef` 避免重复实例化。  
-- 订阅 `GameStore` 的快照并写入 React state，向组件暴露 `gameState`, `metaState`, `startRun`, `hit`, `stand`, `useItem`, `nextLevel`, `pickReward`, `proceedToRewards`, `buyUpgrade` 等操作。  
-- 监听 `EventBus`，将引擎发射的 `GameEvent` 转成 UI 状态（例如 `handAction`、`damageNumbers`、环境卡动画、Clash 状态等）。  
-- 负责本地存档（`localStorage`），保证金币与升级在刷新后保留。
+- 创建 `EventBus` 与 `GameEngine` 单例（`useRef` 防止重复实例化）。  
+- 订阅 `GameStore` 快照，暴露 `gameState`, `metaState`, `startRun`, `hit`, `stand`, `useItem`, `nextLevel`, `pickReward`, `proceedToRewards`, `buyUpgrade` 等操作。  
+- 监听 `EventBus`，同步 `handAction`, `damageNumbers`, 环境动画、Clash 状态等 UI 状态。  
+- 负责 Meta 存档的读写（`localStorage`）。
 
 ### 组件层
 
-- `App.tsx` → `GameProvider` → `GameLayout`，只有一条渲染路径，便于调试。  
-- `components/GameLayout.tsx` 根据 `GamePhase` 渲染不同屏幕（菜单、战斗、胜利、奖励、失败）。  
-- 其他组件（`PlayerHand`, `ItemCard`, `EnvironmentCardDisplay`, `HealthBar`, `Button` 等）负责视觉呈现与交互。  
-- Lucide Icons + Tailwind 风格类用于营造西部/蒸汽朋克主题；`damageNumbers`、`visualEffect` 等由 `EventBus` 驱动，保证动画和逻辑解耦。
+- `App.tsx` → `GameProvider` → `GameLayout`，形成单一渲染入口。  
+- `components/GameLayout.tsx` 根据 `GamePhase` 切换不同界面；`PlayerHand`, `ItemCard`, `EnvironmentCardDisplay`, `HealthBar`, `Button` 等负责渲染细节。  
+- `damageNumbers`、`visualEffect` 等视觉反馈都通过 `EventBus` 触发，保持逻辑与 UI 解耦。
 
 ## 7. 内容与数据驱动
 
 | 文件 | 描述 | 扩展方式 |
 | --- | --- | --- |
-| `content/items.ts` | `ItemDefinition[]`，描述名称、类型、效果 | 追加/修改数组即可；若效果类型为新值，需在 `GameEngine.applyItemEffects` 添加处理 |
-| `content/enemies.ts` | `EnemyTemplate[]` + AI 配置 | 设定 `difficulty`, `aiProfile`, `baseHp`；`getRandomEnemy` 会根据关卡过滤 |
-| `content/environments.ts` | 影响整场 RUN 的环境卡 | 通过 `effects` 组合多种 `LogicEffectType` |
-| `content/events.ts` | 战利品与特殊奖励 | 新增触发器或扩展 Trigger 枚举 |
+| `content/items.ts` | `ItemDefinition[]`（名称、说明、效果） | 直接追加；若新增 `effect.type`，需在 `CombatService.applyItemEffects` 实现逻辑 |
+| `content/enemies.ts` | `EnemyTemplate[]` + AI 配置 | 设置 `difficulty`, `aiProfile`, `baseHp`；`getRandomEnemy` 会按关卡过滤 |
+| `content/environments.ts` | 环境卡/Rule Set | 组合多种 `LogicEffectType` 即可 |
+| `content/events.ts` | 击败奖励、完美得分奖励 | 配置 `trigger` / `effects`，无需改动引擎 |
 
-这种“数据驱动 + 纯函数处理”的模式，既便利于策划调整，也利于日后迁移到后端服务或加上存档验证。
+数据→逻辑的解耦，使策划可直接编辑内容文件，工程侧只需在新增类型时扩展对应服务。
 
 ## 8. Level System 规划
 
-`doc/level-system.md` 描述了即将实现的关卡地图（分支节点、历史保留、事件节点权重等）。当前引擎仍以线性 `Level` 推进，但：
+`doc/level-system.md` 描述了一套“仅展示一段路径 + 逐层生成”的地图系统。当前 Run 仍是线性推进，但：
 
-- `GameEngine.nextLevel` 已经具备参数化能力（根据 `runLevel` 生成敌人与环境卡）。  
-- 未来的地图系统可在 `GameStore` 增加 `mapState` 并在 `GameLayout` 或新组件中渲染，调度逻辑仍可复用 `startRun` / `nextLevel`。  
-- 节点事件（Shop/Treasure）可以沿用现有的事件/奖励基础，只需增加触发入口。
+- `GameEngine.nextLevel` 已具备根据 `runLevel` 生成敌人/环境的能力，可作为地图节点的执行层。  
+- 未来可在 `GameStore` 中增加 `mapState`，由新组件渲染路线，再调用现有 `startRun` / `nextLevel` 驱动战斗。  
+- Shop/Treasure 节点可以沿用现有 Reward & Event 体系，只需新增触发入口。
 
 ## 9. 扩展指引与注意事项
 
-1. **新增道具/效果**  
-   - 在 `content/items.ts` 中添加定义。  
-   - 若 `effects.type` 为新值，在 `GameEngine.applyItemEffects` 中实现逻辑（可复用 `resolveTargets`）。  
-   - 记得在 UI（`ItemCard`）中描述其效果文本。
-
-2. **新增敌人或 AI 策略**  
-   - 扩展 `EnemyTemplate`。  
-   - 若需要新 AI 行为，在 `GameEngine.processAiTurn` 中增加分支或抽象策略表。
-
-3. **新增环境/事件**  
-   - 使用现有的 `LogicEffectType` 即可；若需要新类型（例如实时改动牌堆），需在引擎中加入对应 hook。  
-   - 注意 `duration`（目前主要是 `RUN`），后续可考虑 `ROUND` 或即时效果。
-
-4. **界面/交互**  
-   - 所有布局逻辑集中在 `GameLayout.tsx`，体量较大，后续可拆成按阶段的子组件，减轻维护成本。  
-   - 任何动画需求优先考虑通过 `EventBus` 广播，保持引擎与 UI 解耦。
-
-5. **测试与调试**  
-   - 由于大量逻辑依赖 `sleep`/`setTimeout`，在编写单元测试时可以抽象出时间依赖或提供同步模式。  
-   - 运行态调试：借助 React DevTools 查看 `GameProvider` 状态，或在 `GameEngine` 方法内使用断点。
+1. **新增道具/效果**：在 `content/items.ts` 添加定义；若效果类型为新值，在 `CombatService.applyItemEffects` 中实现逻辑，必要时复用 `resolveTargets`。  
+2. **新增敌人/AI 策略**：扩展 `EnemyTemplate`；若需要新 AI 行为，可在 `CombatService.processAiTurn` 中添加分支或抽象策略表。  
+3. **新增环境/事件**：使用现有 `LogicEffectType`；若需要全新类型，可在 `runStateUtils` 或 RewardService 中扩展对应 hook。  
+4. **界面/交互**：`GameLayout.tsx` 体量较大，逐步拆分为按阶段的子组件有助维护；动画优先通过 `EventBus` 广播。  
+5. **测试/调试**：大量逻辑依赖 `sleep` 与 `setTimeout`，单元测试可通过注入 mock scheduler 或同步模式；运行调试可以直接查看 `GameProvider` 中的快照。
 
 ## 10. 后续演进建议
 
-- 将 `GameEngine` 切分为更细的服务（如 `CombatService`, `RewardService`），以便引入地图/事件系统。  
-- 让 `GameStore` 支持中间件（日志、回放、撤销），便于重放或制作教程。  
-- `content` 层可迁移到 JSON/YAML，配合验证脚本让非工程角色也能编辑。  
-- 引入 `MapState`（见 `doc/level-system.md`）后，可以把节点数据持久化到 `MetaState`，支持一次 run 的进度保存。
+- 目前已完成 Combat/Reward 分离，下一步可继续抽象 `MapService` / `EventChainService` 以支撑地图与剧情。  
+- 为 `GameStore` 增加中间件（日志、录像、撤销）提升可观测性。  
+- 将 `content` 层迁移到 JSON/YAML 并配合 lint/校验脚本，便于多人协作。  
+- 引入 `MapState` 后，可将节点数据写入 `MetaState`，为长流程 Run 提供断点续玩能力。
 
 ---
 
-如需更深入的设计背景，请继续参考 `doc/level-system.md`（关卡路线）与 `README.md`（项目背景）。本文件会随着系统扩展持续更新。请在修改架构相关模块时同步修订。
+如需了解更具体的系统设计，请参阅 `doc/level-system.md`（关卡路线）与 `README.md`（项目背景）。若对架构有重大调整，记得同步更新此文件。
