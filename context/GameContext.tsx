@@ -154,7 +154,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const enemyActionTimer = useRef<number | null>(null);
 
     useEffect(() => {
-        const bus = busRef.current!;
+        const bus = busRef.current;
         return bus.subscribe(event => {
             switch (event.type) {
                 case 'hand.action': {

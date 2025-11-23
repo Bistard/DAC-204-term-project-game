@@ -432,7 +432,7 @@ export class GameEngine {
                 type: 'environment.animation',
                 payload: { card, state: 'entering' },
             });
-            await sleep(600);
+            await sleep(DELAY_MEDIUM);
             this.deps.eventBus.emit({
                 type: 'environment.animation',
                 payload: { card, state: 'holding' },
@@ -726,9 +726,11 @@ export class GameEngine {
         const multiplier = this.getDamageMultiplier(target);
         const finalAmount = Math.ceil(amount * multiplier);
         let blocked = 0;
-        this.store.updateState(prev => {
+        this.store.updateState((prev: GameState) => {
             const entity = target === 'PLAYER' ? prev.player : prev.enemy;
-            if (!entity) return prev;
+            if (!entity) {
+                return prev;
+            }
             let remaining = finalAmount;
             let shield = entity.shield;
             if (shield > 0) {
@@ -739,9 +741,10 @@ export class GameEngine {
             const hp = Math.max(0, entity.hp - remaining);
             const updated = { ...entity, hp, shield };
             if (target === 'PLAYER') {
-                return { ...prev, player: updated };
+                return { ...prev, player: updated } as GameState;
+            } else {
+                return { ...prev, enemy: updated } as GameState;
             }
-            return { ...prev, enemy: updated };
         });
 
         this.deps.eventBus.emit({
