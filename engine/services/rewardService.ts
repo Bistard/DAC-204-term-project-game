@@ -10,9 +10,8 @@ import { EVENT_EFFECTS, GameEventTrigger } from '../../content/events';
 import { EventBus } from '../eventBus';
 import { GameStore } from '../state/gameStore';
 import { GamePhase, Item, LogicEffectConfig, MetaState } from '../../types';
-import { getRandomEnemy, getRandomEnvironment, getRandomItems, createDeck } from '../utils';
+import { getRandomEnemy, getRandomEnvironment, getRandomItems, createDeck, applyEnvironmentRules } from '../utils';
 import { MetaUpdater } from '../../types';
-import { applyEnvironmentRules } from './runStateUtils';
 
 interface RewardServiceDeps {
     store: GameStore;

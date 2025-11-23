@@ -27,6 +27,7 @@ import {
     TurnOwner,
 } from '../../types';
 import {
+    applyEnvironmentRules,
     calculateScore,
     createDeck,
     getRandomEnemy,
@@ -35,7 +36,6 @@ import {
     sleep,
 } from '../utils';
 import { RewardService } from './rewardService';
-import { applyEnvironmentRules } from './runStateUtils';
 
 interface CombatServiceDeps {
     store: GameStore;

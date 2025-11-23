@@ -1,9 +1,9 @@
 
-import { Card, Suit, Item, Enemy, EnvironmentCard, ItemDefinition, EnemyTemplate } from '../types';
+import { Card, Suit, Item, Enemy, EnvironmentCard, ItemDefinition, EnemyTemplate, GameState } from '../types';
 import { ITEM_DEFINITIONS } from '../content/items';
 import { ENEMY_TEMPLATES } from '../content/enemies';
 import { ENVIRONMENT_CARDS } from '../content/environments';
-import { ACE_VALUE, ACE_ADJUSTMENT, HP_SCALING_PER_LEVEL, MAX_INVENTORY_SLOTS } from '../constants';
+import { ACE_VALUE, ACE_ADJUSTMENT, HP_SCALING_PER_LEVEL, MAX_INVENTORY_SLOTS, TARGET_SCORE } from '../constants';
 
 export const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
@@ -105,5 +105,27 @@ export const getRandomEnemy = (level: number): Enemy => {
         score: 0,
         inventory: [],
         maxInventory: template.maxInventory ?? MAX_INVENTORY_SLOTS,
+    };
+};
+
+/**
+ * Apply persistent environment card effects onto the provided state snapshot.
+ * Currently only adjusts the target score, but centralized here so both
+ * CombatService and RewardService can stay in sync.
+ */
+export const applyEnvironmentRules = (state: GameState): GameState => {
+    let targetScore = state.targetScore ?? TARGET_SCORE;
+    if (state.activeEnvironment.length > 0) {
+        state.activeEnvironment.forEach(card => {
+            card.effects.forEach(effect => {
+                if (effect.type === 'SET_TARGET_SCORE' && typeof effect.amount === 'number') {
+                    targetScore = effect.amount;
+                }
+            });
+        });
+    }
+    return {
+        ...state,
+        targetScore,
     };
 };
