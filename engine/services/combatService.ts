@@ -18,12 +18,12 @@ import {
     ClashState,
     Enemy,
     GamePhase,
-    GameSnapshot,
     GameState,
     HandAction,
     Item,
     LogicEffectConfig,
     MetaState,
+    StoreUpdateMeta,
     TurnOwner,
 } from '../../types';
 import {
@@ -74,7 +74,10 @@ export class CombatService {
             activeEnvironment: envCards,
             message: 'Run started!',
         });
-        this.store.setState(initialState);
+        this.store.setState(
+            initialState,
+            this.createMeta('start-run', 'Initialize new run', { runLevel: initialState.runLevel })
+        );
 
         this.startRound();
     }
@@ -89,17 +92,20 @@ export class CombatService {
         }
 
         const deck = createDeck();
-        this.store.updateState(prev => ({
-            ...prev,
-            deck,
-            discardPile: [],
-            player: { ...prev.player, hand: [], score: 0, shield: 0 },
-            enemy: prev.enemy ? { ...prev.enemy, hand: [], score: 0, shield: 0 } : null,
-            playerStood: false,
-            enemyStood: false,
-            turnOwner: 'PLAYER',
-            message: 'Dealing hand...',
-        }));
+        this.store.updateState(
+            prev => ({
+                ...prev,
+                deck,
+                discardPile: [],
+                player: { ...prev.player, hand: [], score: 0, shield: 0 },
+                enemy: prev.enemy ? { ...prev.enemy, hand: [], score: 0, shield: 0 } : null,
+                playerStood: false,
+                enemyStood: false,
+                turnOwner: 'PLAYER',
+                message: 'Dealing hand...',
+            }),
+            this.createMeta('round.setup', 'Prepare new round', { round: snapshot.state.roundCount })
+        );
 
         await sleep(DELAY_LONG);
 
@@ -117,7 +123,10 @@ export class CombatService {
         }
 
         await sleep(DELAY_MEDIUM);
-        this.store.updateState(prev => ({ ...prev, message: 'Your Turn.' }));
+        this.store.updateState(
+            prev => ({ ...prev, message: 'Your Turn.' }),
+            this.createMeta('round.ready', 'Player turn begins')
+        );
         this.setDealing(false);
         this.evaluateFlow();
     }
@@ -145,17 +154,20 @@ export class CombatService {
         if (snapshot.state.phase !== GamePhase.BATTLE) return;
 
         this.emitHandAction(actor, 'STAND', 800);
-        this.store.updateState(prev => {
-            const isPlayer = actor === 'PLAYER';
-            const nextTurnOwner: TurnOwner = isPlayer ? 'ENEMY' : 'PLAYER';
-            return {
-                ...prev,
-                playerStood: isPlayer ? true : prev.playerStood,
-                enemyStood: !isPlayer ? true : prev.enemyStood,
-                turnOwner: nextTurnOwner,
-                message: `${actor} stands.`,
-            };
-        });
+        this.store.updateState(
+            prev => {
+                const isPlayer = actor === 'PLAYER';
+                const nextTurnOwner: TurnOwner = isPlayer ? 'ENEMY' : 'PLAYER';
+                return {
+                    ...prev,
+                    playerStood: isPlayer ? true : prev.playerStood,
+                    enemyStood: !isPlayer ? true : prev.enemyStood,
+                    turnOwner: nextTurnOwner,
+                    message: `${actor} stands.`,
+                };
+            },
+            this.createMeta('turn.stand', `${actor} stands`, { actor })
+        );
         this.evaluateFlow();
     }
 
@@ -171,21 +183,24 @@ export class CombatService {
         await sleep(DELAY_ITEM_USE);
         this.emitHandAction(actor, 'USE', 800);
 
-        this.store.updateState(prev => {
-            const entityKey = actor === 'PLAYER' ? 'player' : 'enemy';
-            const current = prev[entityKey]!;
-            if (!current.inventory[index]) return prev;
-            const newInventory = current.inventory.filter((_, idx) => idx !== index);
+        this.store.updateState(
+            prev => {
+                const entityKey = actor === 'PLAYER' ? 'player' : 'enemy';
+                const current = prev[entityKey]!;
+                if (!current.inventory[index]) return prev;
+                const newInventory = current.inventory.filter((_, idx) => idx !== index);
 
-            return {
-                ...prev,
-                [entityKey]: {
-                    ...current,
-                    inventory: newInventory,
-                },
-                ...(actor === 'PLAYER' ? { enemyStood: false } : { playerStood: false }),
-            };
-        });
+                return {
+                    ...prev,
+                    [entityKey]: {
+                        ...current,
+                        inventory: newInventory,
+                    },
+                    ...(actor === 'PLAYER' ? { enemyStood: false } : { playerStood: false }),
+                };
+            },
+            this.createMeta('item.consume', `${actor} used ${item.name}`, { actor, itemId: item.id })
+        );
 
         await this.applyItemEffects(item, actor);
 
@@ -204,7 +219,10 @@ export class CombatService {
             (snapshot.state.turnOwner !== 'ENEMY' || snapshot.state.enemyStood || snapshot.flags.isDealing)
         ) {
             this.clearAiTimer();
-            this.store.updateFlags(flags => ({ ...flags, isProcessingAI: false }));
+            this.store.updateFlags(
+                flags => ({ ...flags, isProcessingAI: false }),
+                this.createMeta('flag.ai', 'Stop AI processing', undefined, { suppressHistory: true })
+            );
         }
 
         if (
@@ -231,78 +249,87 @@ export class CombatService {
         options: { faceDown?: boolean; shiftTurn?: boolean } = {}
     ) {
         let drawnCardId: string | null = null;
-        this.store.updateState(prev => {
-            const deck = [...prev.deck];
-            if (deck.length === 0) return prev;
-            const card = deck.pop()!;
-            card.isFaceUp = !options.faceDown;
-            drawnCardId = card.id;
-            const entityKey = actor === 'PLAYER' ? 'player' : 'enemy';
-            const entity = prev[entityKey]!;
-            const newHand = [...entity.hand, card];
-            const message = actor === 'PLAYER' ? 'You drew a card...' : 'Enemy drew a card...';
-            return {
-                ...prev,
-                deck,
-                [entityKey]: { ...entity, hand: newHand },
-                message,
-                ...(actor === 'PLAYER' ? { enemyStood: false } : { playerStood: false }),
-            };
-        });
+        this.store.updateState(
+            prev => {
+                const deck = [...prev.deck];
+                if (deck.length === 0) return prev;
+                const card = deck.pop()!;
+                card.isFaceUp = !options.faceDown;
+                drawnCardId = card.id;
+                const entityKey = actor === 'PLAYER' ? 'player' : 'enemy';
+                const entity = prev[entityKey]!;
+                const newHand = [...entity.hand, card];
+                const message = actor === 'PLAYER' ? 'You drew a card...' : 'Enemy drew a card...';
+                return {
+                    ...prev,
+                    deck,
+                    [entityKey]: { ...entity, hand: newHand },
+                    message,
+                    ...(actor === 'PLAYER' ? { enemyStood: false } : { playerStood: false }),
+                };
+            },
+            this.createMeta('card.draw', `${actor} drew a card`, { actor })
+        );
         return drawnCardId ? { cardId: drawnCardId } : null;
     }
 
     private revealCard(actor: TurnOwner, cardId: string, options: { shiftTurn?: boolean } = {}) {
-        this.store.updateState(prev => {
-            const entityKey = actor === 'PLAYER' ? 'player' : 'enemy';
-            const entity = prev[entityKey]!;
-            const hand = entity.hand.map(card =>
-                card.id === cardId ? { ...card, isFaceUp: true } : card
-            );
-            const score = calculateScore(hand, prev.targetScore);
-            const card = hand.find(c => c.id === cardId);
-            const message =
-                actor === 'PLAYER'
-                    ? `You drew ${card?.rank ?? ''}${card?.suit ?? ''}`
-                    : `Enemy drew ${card?.rank ?? ''}${card?.suit ?? ''}`;
-            const shiftTurn = options.shiftTurn !== false;
-            const nextTurnOwner: TurnOwner = shiftTurn
-                ? actor === 'PLAYER'
-                    ? prev.enemyStood
-                        ? 'PLAYER'
-                        : 'ENEMY'
-                    : prev.playerStood
-                    ? 'ENEMY'
-                    : 'PLAYER'
-                : prev.turnOwner;
-            return {
-                ...prev,
-                [entityKey]: { ...entity, hand, score },
-                turnOwner: nextTurnOwner,
-                message,
-            };
-        });
+        this.store.updateState(
+            prev => {
+                const entityKey = actor === 'PLAYER' ? 'player' : 'enemy';
+                const entity = prev[entityKey]!;
+                const hand = entity.hand.map(card =>
+                    card.id === cardId ? { ...card, isFaceUp: true } : card
+                );
+                const score = calculateScore(hand, prev.targetScore);
+                const card = hand.find(c => c.id === cardId);
+                const message =
+                    actor === 'PLAYER'
+                        ? `You drew ${card?.rank ?? ''}${card?.suit ?? ''}`
+                        : `Enemy drew ${card?.rank ?? ''}${card?.suit ?? ''}`;
+                const shiftTurn = options.shiftTurn !== false;
+                const nextTurnOwner: TurnOwner = shiftTurn
+                    ? actor === 'PLAYER'
+                        ? prev.enemyStood
+                            ? 'PLAYER'
+                            : 'ENEMY'
+                        : prev.playerStood
+                        ? 'ENEMY'
+                        : 'PLAYER'
+                    : prev.turnOwner;
+                return {
+                    ...prev,
+                    [entityKey]: { ...entity, hand, score },
+                    turnOwner: nextTurnOwner,
+                    message,
+                };
+            },
+            this.createMeta('card.reveal', `${actor} revealed a card`, { actor, cardId })
+        );
     }
 
     private revealInitialHands() {
-        this.store.updateState(prev => {
-            const playerHand = prev.player.hand.map(card => ({ ...card, isFaceUp: true }));
-            const forcedReveal = this.getForcedRevealCount();
-            const enemyHand = prev.enemy
-                ? prev.enemy.hand.map((card, idx) => {
-                      const shouldReveal = forcedReveal > 0 ? idx < forcedReveal : idx !== 0;
-                      return shouldReveal ? { ...card, isFaceUp: true } : card;
-                  })
-                : [];
-            const playerScore = calculateScore(playerHand, prev.targetScore);
-            const enemyScore = prev.enemy ? calculateScore(enemyHand.filter(c => c.isFaceUp), prev.targetScore) : 0;
-            return {
-                ...prev,
-                player: { ...prev.player, hand: playerHand, score: playerScore },
-                enemy: prev.enemy ? { ...prev.enemy, hand: enemyHand, score: enemyScore } : null,
-                message: 'Loading Modules...',
-            };
-        });
+        this.store.updateState(
+            prev => {
+                const playerHand = prev.player.hand.map(card => ({ ...card, isFaceUp: true }));
+                const forcedReveal = this.getForcedRevealCount();
+                const enemyHand = prev.enemy
+                    ? prev.enemy.hand.map((card, idx) => {
+                          const shouldReveal = forcedReveal > 0 ? idx < forcedReveal : idx !== 0;
+                          return shouldReveal ? { ...card, isFaceUp: true } : card;
+                      })
+                    : [];
+                const playerScore = calculateScore(playerHand, prev.targetScore);
+                const enemyScore = prev.enemy ? calculateScore(enemyHand.filter(c => c.isFaceUp), prev.targetScore) : 0;
+                return {
+                    ...prev,
+                    player: { ...prev.player, hand: playerHand, score: playerScore },
+                    enemy: prev.enemy ? { ...prev.enemy, hand: enemyHand, score: enemyScore } : null,
+                    message: 'Loading Modules...',
+                };
+            },
+            this.createMeta('round.reveal', 'Reveal opening hands')
+        );
     }
 
     private async grantInitialItems() {
@@ -317,18 +344,21 @@ export class CombatService {
         for (const seq of sequences) {
             for (let i = 0; i < seq.count; i++) {
                 await sleep(400);
-                this.store.updateState(prev => {
-                    const entityKey = seq.actor === 'PLAYER' ? 'player' : 'enemy';
-                    const entity = prev[entityKey]!;
-                    if (entity.inventory.length >= entity.maxInventory) return prev;
-                    return {
-                        ...prev,
-                        [entityKey]: {
-                            ...entity,
-                            inventory: [...entity.inventory, getRandomItems(1)[0]],
-                        },
-                    };
-                });
+                this.store.updateState(
+                    prev => {
+                        const entityKey = seq.actor === 'PLAYER' ? 'player' : 'enemy';
+                        const entity = prev[entityKey]!;
+                        if (entity.inventory.length >= entity.maxInventory) return prev;
+                        return {
+                            ...prev,
+                            [entityKey]: {
+                                ...entity,
+                                inventory: [...entity.inventory, getRandomItems(1)[0]],
+                            },
+                        };
+                    },
+                    this.createMeta('item.grant', `Granted item to ${seq.actor}`, { actor: seq.actor })
+                );
             }
         }
     }
@@ -362,7 +392,10 @@ export class CombatService {
     }
 
     private setDealing(value: boolean) {
-        this.store.updateFlags(flags => ({ ...flags, isDealing: value }));
+        this.store.updateFlags(
+            flags => ({ ...flags, isDealing: value }),
+            this.createMeta('flag.dealing', value ? 'Dealing started' : 'Dealing finished', { value }, { suppressHistory: true })
+        );
     }
 
     private async applyItemEffects(item: Item, actor: TurnOwner) {
@@ -388,18 +421,21 @@ export class CombatService {
         if (amount <= 0) return;
         const targets = this.resolveTargets(actor, effect.scope);
         targets.forEach(target => {
-            this.store.updateState(prev => {
-                const entity = target === 'PLAYER' ? prev.player : prev.enemy;
-                if (!entity) return prev;
-                const nextHp = Math.min(entity.maxHp, entity.hp + amount);
-                return {
-                    ...prev,
-                    [target === 'PLAYER' ? 'player' : 'enemy']: {
-                        ...entity,
-                        hp: nextHp,
-                    },
-                };
-            });
+            this.store.updateState(
+                prev => {
+                    const entity = target === 'PLAYER' ? prev.player : prev.enemy;
+                    if (!entity) return prev;
+                    const nextHp = Math.min(entity.maxHp, entity.hp + amount);
+                    return {
+                        ...prev,
+                        [target === 'PLAYER' ? 'player' : 'enemy']: {
+                            ...entity,
+                            hp: nextHp,
+                        },
+                    };
+                },
+                this.createMeta('effect.heal', `Heal applied to ${target}`, { target, amount })
+            );
             this.eventBus.emit({
                 type: 'damage.number',
                 payload: { value: amount, target, variant: 'HEAL' },
@@ -412,17 +448,20 @@ export class CombatService {
         if (amount <= 0) return;
         const targets = this.resolveTargets(actor, effect.scope);
         targets.forEach(target => {
-            this.store.updateState(prev => {
-                const entity = target === 'PLAYER' ? prev.player : prev.enemy;
-                if (!entity) return prev;
-                return {
-                    ...prev,
-                    [target === 'PLAYER' ? 'player' : 'enemy']: {
-                        ...entity,
-                        shield: entity.shield + amount,
-                    },
-                };
-            });
+            this.store.updateState(
+                prev => {
+                    const entity = target === 'PLAYER' ? prev.player : prev.enemy;
+                    if (!entity) return prev;
+                    return {
+                        ...prev,
+                        [target === 'PLAYER' ? 'player' : 'enemy']: {
+                            ...entity,
+                            shield: entity.shield + amount,
+                        },
+                    };
+                },
+                this.createMeta('effect.shield', `Shield applied to ${target}`, { target, amount })
+            );
         });
     }
 
@@ -446,11 +485,17 @@ export class CombatService {
 
     private queueAiTurn() {
         this.clearAiTimer();
-        this.store.updateFlags(flags => ({ ...flags, isProcessingAI: true }));
+        this.store.updateFlags(
+            flags => ({ ...flags, isProcessingAI: true }),
+            this.createMeta('flag.ai', 'Start AI processing', undefined, { suppressHistory: true })
+        );
         const scheduler = typeof window !== 'undefined' ? window.setTimeout : setTimeout;
         this.aiTimer = scheduler(async () => {
             await this.processAiTurn();
-            this.store.updateFlags(flags => ({ ...flags, isProcessingAI: false }));
+            this.store.updateFlags(
+                flags => ({ ...flags, isProcessingAI: false }),
+                this.createMeta('flag.ai', 'AI turn completed', undefined, { suppressHistory: true })
+            );
             this.aiTimer = null;
         }, DELAY_XL);
     }
@@ -479,7 +524,10 @@ export class CombatService {
     }
 
     private async resolveRound() {
-        this.store.updateFlags(flags => ({ ...flags, isResolvingRound: true }));
+        this.store.updateFlags(
+            flags => ({ ...flags, isResolvingRound: true }),
+            this.createMeta('flag.resolve', 'Begin round resolution', undefined, { suppressHistory: true })
+        );
         const snapshot = this.store.snapshot;
         const playerHand = snapshot.state.player.hand.map(card => ({ ...card, isFaceUp: true }));
         const enemyHand = snapshot.state.enemy
@@ -488,11 +536,14 @@ export class CombatService {
         const playerScore = calculateScore(playerHand, snapshot.state.targetScore);
         const enemyScore = snapshot.state.enemy ? calculateScore(enemyHand, snapshot.state.targetScore) : 0;
 
-        this.store.updateState(prev => ({
-            ...prev,
-            player: { ...prev.player, hand: playerHand, score: playerScore },
-            enemy: prev.enemy ? { ...prev.enemy, hand: enemyHand, score: enemyScore } : null,
-        }));
+        this.store.updateState(
+            prev => ({
+                ...prev,
+                player: { ...prev.player, hand: playerHand, score: playerScore },
+                enemy: prev.enemy ? { ...prev.enemy, hand: enemyHand, score: enemyScore } : null,
+            }),
+            this.createMeta('round.revealFinal', 'Reveal full hands before clash', { playerScore, enemyScore })
+        );
 
         const clash: ClashState = {
             active: true,
@@ -509,7 +560,10 @@ export class CombatService {
         });
 
         await this.resolveDamage(clash.result);
-        this.store.updateFlags(flags => ({ ...flags, isResolvingRound: false }));
+        this.store.updateFlags(
+            flags => ({ ...flags, isResolvingRound: false }),
+            this.createMeta('flag.resolve', 'Finish round resolution', undefined, { suppressHistory: true })
+        );
     }
 
     private evaluateClashResult(playerScore: number, enemyScore: number, target: number) {
@@ -564,19 +618,25 @@ export class CombatService {
             this.deps.rewardService.applyEventTrigger('PERFECT_SCORE');
         }
 
-        this.store.updateState(prev => ({
-            ...prev,
-            message,
-        }));
+        this.store.updateState(
+            prev => ({
+                ...prev,
+                message,
+            }),
+            this.createMeta('round.result', 'Round result message', { message })
+        );
 
         await sleep(DELAY_TURN_END);
         if (playerDead) {
-            this.store.updateState(prev => ({
-                ...prev,
-                phase: GamePhase.GAME_OVER,
-                player: { ...prev.player, hp: 0 },
-                message: 'You were defeated.',
-            }));
+            this.store.updateState(
+                prev => ({
+                    ...prev,
+                    phase: GamePhase.GAME_OVER,
+                    player: { ...prev.player, hp: 0 },
+                    message: 'You were defeated.',
+                }),
+                this.createMeta('round.gameOver', 'Player defeated')
+            );
             return;
         }
 
@@ -584,17 +644,21 @@ export class CombatService {
         if (enemyDead) {
             await this.deps.rewardService.handleVictory();
         } else {
-            this.store.updateState(prev => ({
-                ...prev,
-                player: { ...prev.player, hand: [], score: 0, shield: 0 },
-                enemy: prev.enemy ? { ...prev.enemy, hand: [], score: 0, shield: 0 } : null,
-                discardPile: [],
-                playerStood: false,
-                enemyStood: false,
-                turnOwner: 'PLAYER',
-                roundCount: prev.roundCount + 1,
-                message: `${message} Next Round...`,
-            }));
+            const nextRound = this.store.snapshot.state.roundCount + 1;
+            this.store.updateState(
+                prev => ({
+                    ...prev,
+                    player: { ...prev.player, hand: [], score: 0, shield: 0 },
+                    enemy: prev.enemy ? { ...prev.enemy, hand: [], score: 0, shield: 0 } : null,
+                    discardPile: [],
+                    playerStood: false,
+                    enemyStood: false,
+                    turnOwner: 'PLAYER',
+                    roundCount: prev.roundCount + 1,
+                    message: `${message} Next Round...`,
+                }),
+                this.createMeta('round.advance', 'Advance to next round', { nextRound })
+            );
             this.startRound();
         }
     }
@@ -603,26 +667,34 @@ export class CombatService {
         const multiplier = this.getDamageMultiplier(target);
         const finalAmount = Math.ceil(amount * multiplier);
         let blocked = 0;
-        this.store.updateState((prev: GameState) => {
-            const entity = target === 'PLAYER' ? prev.player : prev.enemy;
-            if (!entity) {
-                return prev;
-            }
-            let remaining = finalAmount;
-            let shield = entity.shield;
-            if (shield > 0) {
-                blocked = Math.min(shield, remaining);
-                shield -= blocked;
-                remaining -= blocked;
-            }
-            const hp = Math.max(0, entity.hp - remaining);
-            const updated = { ...entity, hp, shield };
-            if (target === 'PLAYER') {
-                return { ...prev, player: updated } as GameState;
-            } else {
-                return { ...prev, enemy: updated } as GameState;
-            }
-        });
+        this.store.updateState(
+            (prev: GameState) => {
+                const entity = target === 'PLAYER' ? prev.player : prev.enemy;
+                if (!entity) {
+                    return prev;
+                }
+                let remaining = finalAmount;
+                let shield = entity.shield;
+                if (shield > 0) {
+                    blocked = Math.min(shield, remaining);
+                    shield -= blocked;
+                    remaining -= blocked;
+                }
+                const hp = Math.max(0, entity.hp - remaining);
+                const updated = { ...entity, hp, shield };
+                if (target === 'PLAYER') {
+                    return { ...prev, player: updated } as GameState;
+                } else {
+                    return { ...prev, enemy: updated } as GameState;
+                }
+            },
+            this.createMeta('damage.apply', `Damage applied to ${target}`, {
+                target,
+                amount: amount,
+                finalAmount,
+                blocked,
+            })
+        );
 
         this.eventBus.emit({
             type: 'damage.number',
@@ -671,6 +743,20 @@ export class CombatService {
             });
         });
         return multiplier;
+    }
+
+    private createMeta(
+        tag: string,
+        description: string,
+        payload?: Record<string, unknown>,
+        extra?: Partial<StoreUpdateMeta>
+    ): StoreUpdateMeta {
+        return {
+            tag: `combat:${tag}`,
+            description,
+            ...(payload ? { payload } : {}),
+            ...extra,
+        };
     }
 
     private clearAiTimer() {

@@ -51,6 +51,8 @@ GameContext 状态 → 触发渲染 → 订阅 EventBus 处理动画
 - `state` 保存 `GameState`，`flags` 保存运行标记。
 - `snapshot` 使用 `createSnapshot` 合并 state + flags，保证监听者拿到一致的数据。
 - `subscribe` 会立即推送一次快照，并在更新后广播，供 `GameContext` 同步到 React。
+- `engine/state/storeEnhancers.ts` 提供 `TimelineTracker` / `ActionLogger` / `RecordingBuffer`，`GameStore` 内建的日志、撤销、回放都基于它们。
+- `GameStore` 暴露 `getActionLog`, `getHistory`, `undo/redo`, `startRecording/stopRecording`, `replay` 等调试 API，可直接用于制作教程或回放演示。
 
 ## 4. Run / Round 生命周期
 
@@ -154,7 +156,7 @@ GameContext 状态 → 触发渲染 → 订阅 EventBus 处理动画
 ## 10. 后续演进建议
 
 - 目前已完成 Combat/Reward 分离，下一步可继续抽象 `MapService` / `EventChainService` 以支撑地图与剧情。  
-- 为 `GameStore` 增加中间件（日志、录像、撤销）提升可观测性。  
+- 可在 `engine/state/storeEnhancers.ts` 中扩展日志/录像中间件（基础的日志、撤销、回放已内建）。
 - 将 `content` 层迁移到 JSON/YAML 并配合 lint/校验脚本，便于多人协作。  
 - 引入 `MapState` 后，可将节点数据写入 `MetaState`，为长流程 Run 提供断点续玩能力。
 

@@ -136,6 +136,48 @@ export interface GameSnapshot {
     flags: RuntimeFlags;
 }
 
+export interface StoreUpdateMeta {
+    tag?: string;
+    description?: string;
+    payload?: Record<string, unknown>;
+    suppressLog?: boolean;
+    suppressHistory?: boolean;
+}
+
+export interface GameLogEntry {
+    id: string;
+    timestamp: number;
+    tag?: string;
+    description: string;
+    round: number;
+    phase: GamePhase;
+    turnOwner: TurnOwner;
+    payload?: Record<string, unknown>;
+}
+
+export interface ReplayFrame {
+    snapshot: GameSnapshot;
+    meta?: StoreUpdateMeta;
+    timestamp: number;
+}
+
+export interface ReplayOptions {
+    frames?: ReplayFrame[];
+    delayMs?: number;
+    loop?: boolean;
+    loopCount?: number;
+    onFrame?: (frame: ReplayFrame, index: number) => void;
+}
+
+export interface LoadHistoryOptions {
+    applyState?: boolean;
+}
+
+export interface RecordingOptions {
+    label?: string;
+    includeCurrent?: boolean;
+}
+
 export interface MetaUpgrades {
     hpLevel: number;
     inventoryLevel: number;

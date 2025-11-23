@@ -14,10 +14,15 @@ import {
     ClashState,
     DamageNumber,
     EnvironmentCard,
+    GameLogEntry,
     GameState,
     HandAction,
     Item,
     MetaState,
+    LoadHistoryOptions,
+    RecordingOptions,
+    ReplayFrame,
+    ReplayOptions,
     TurnOwner,
 } from '../types';
 
@@ -47,6 +52,19 @@ interface GameContextType {
     proceedToRewards: () => void;
     setGameState: React.Dispatch<React.SetStateAction<GameState>>;
     buyUpgrade: (type: 'HP' | 'INVENTORY') => void;
+    actionLog: GameLogEntry[];
+    canUndo: boolean;
+    canRedo: boolean;
+    isRecording: boolean;
+    undo: () => void;
+    redo: () => void;
+    startRecording: (options?: RecordingOptions) => void;
+    stopRecording: () => ReplayFrame[];
+    replayHistory: (options?: ReplayOptions) => Promise<void>;
+    getRecording: () => ReplayFrame[];
+    getHistory: () => ReplayFrame[];
+    loadHistory: (frames: ReplayFrame[], options?: LoadHistoryOptions) => void;
+    resumeGame: () => void;
 }
 
 const defaultClashState: ClashState = {
@@ -110,7 +128,24 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const engine = engineRef.current;
 
     const [snapshot, setSnapshot] = useState(engine.snapshot);
-    useEffect(() => engine.subscribe(setSnapshot), [engine]);
+    const [storeDiagnostics, setStoreDiagnostics] = useState(() => ({
+        actionLog: engine.getActionLog(50),
+        canUndo: engine.canUndo(),
+        canRedo: engine.canRedo(),
+        isRecording: engine.isRecording(),
+    }));
+    useEffect(() => {
+        const unsubscribe = engine.subscribe(nextSnapshot => {
+            setSnapshot(nextSnapshot);
+            setStoreDiagnostics({
+                actionLog: engine.getActionLog(50),
+                canUndo: engine.canUndo(),
+                canRedo: engine.canRedo(),
+                isRecording: engine.isRecording(),
+            });
+        });
+        return unsubscribe;
+    }, [engine]);
 
     const [visualEffect, setVisualEffect] = useState('');
     const [damageNumbers, setDamageNumbers] = useState<DamageNumber[]>([]);
@@ -238,6 +273,18 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const pickReward = useCallback((item: Item, index: number) => engine.pickReward(item, index), [engine]);
     const proceedToRewards = useCallback(() => engine.proceedToRewards(), [engine]);
     const buyUpgrade = useCallback((type: 'HP' | 'INVENTORY') => engine.buyUpgrade(type), [engine]);
+    const undo = useCallback(() => engine.undo(), [engine]);
+    const redo = useCallback(() => engine.redo(), [engine]);
+    const startRecording = useCallback((options?: RecordingOptions) => engine.startRecording(options), [engine]);
+    const stopRecording = useCallback(() => engine.stopRecording(), [engine]);
+    const replayHistory = useCallback((options?: ReplayOptions) => engine.replay(options), [engine]);
+    const getRecording = useCallback(() => engine.getRecording(), [engine]);
+    const getHistory = useCallback(() => engine.getHistory(), [engine]);
+    const loadHistory = useCallback(
+        (frames: ReplayFrame[], options?: LoadHistoryOptions) => engine.loadHistory(frames, options),
+        [engine]
+    );
+    const resumeGame = useCallback(() => engine.resumeGame(), [engine]);
 
     const value = useMemo<GameContextType>(() => {
         const gameState = snapshot.state;
@@ -267,6 +314,19 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             proceedToRewards,
             setGameState,
             buyUpgrade,
+            actionLog: storeDiagnostics.actionLog,
+            canUndo: storeDiagnostics.canUndo,
+            canRedo: storeDiagnostics.canRedo,
+            isRecording: storeDiagnostics.isRecording,
+            undo,
+            redo,
+            startRecording,
+            stopRecording,
+            replayHistory,
+            getRecording,
+            getHistory,
+            loadHistory,
+            resumeGame,
         };
     }, [
         snapshot,
@@ -290,6 +350,16 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         proceedToRewards,
         setGameState,
         buyUpgrade,
+        storeDiagnostics,
+        undo,
+        redo,
+        startRecording,
+        stopRecording,
+        replayHistory,
+        getRecording,
+        getHistory,
+        loadHistory,
+        resumeGame,
     ]);
 
     return <GameContext.Provider value={value}>{children}</GameContext.Provider>;

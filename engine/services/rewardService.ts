@@ -9,7 +9,7 @@ import {
 import { EVENT_EFFECTS, GameEventTrigger } from '../../content/events';
 import { EventBus } from '../eventBus';
 import { GameStore } from '../state/gameStore';
-import { GamePhase, Item, LogicEffectConfig, MetaState } from '../../types';
+import { GamePhase, Item, LogicEffectConfig, MetaState, StoreUpdateMeta } from '../../types';
 import { getRandomEnemy, getRandomEnvironment, getRandomItems, createDeck, applyEnvironmentRules } from '../utils';
 import { MetaUpdater } from '../../types';
 
@@ -30,23 +30,29 @@ export class RewardService {
     }
 
     async handleVictory() {
-        this.store.updateState(prev => ({
-            ...prev,
-            phase: GamePhase.VICTORY,
-            enemy: prev.enemy ? { ...prev.enemy, hp: 0 } : prev.enemy,
-        }));
+        this.store.updateState(
+            prev => ({
+                ...prev,
+                phase: GamePhase.VICTORY,
+                enemy: prev.enemy ? { ...prev.enemy, hp: 0 } : prev.enemy,
+            }),
+            this.meta('victory', 'Enemy defeated')
+        );
 
         this.applyEventTrigger('ENEMY_DEFEATED');
     }
 
     proceedToRewards() {
-        this.store.updateState(prev => ({
-            ...prev,
-            phase: GamePhase.REWARD,
-            rewardOptions: getRandomItems(REWARD_POOL_SIZE),
-            pickedRewardIndices: [],
-            message: 'Enemy Defeated!',
-        }));
+        this.store.updateState(
+            prev => ({
+                ...prev,
+                phase: GamePhase.REWARD,
+                rewardOptions: getRandomItems(REWARD_POOL_SIZE),
+                pickedRewardIndices: [],
+                message: 'Enemy Defeated!',
+            }),
+            this.meta('phase.reward', 'Enter reward phase')
+        );
     }
 
     pickReward(item: Item, index: number) {
@@ -55,19 +61,22 @@ export class RewardService {
         if (snapshot.state.pickedRewardIndices.includes(index)) return;
         if (snapshot.state.pickedRewardIndices.length >= REWARD_PICK_LIMIT) return;
 
-        this.store.updateState(prev => {
-            const isFull = prev.player.inventory.length >= prev.player.maxInventory;
-            if (isFull) return prev;
+        this.store.updateState(
+            prev => {
+                const isFull = prev.player.inventory.length >= prev.player.maxInventory;
+                if (isFull) return prev;
 
-            return {
-                ...prev,
-                pickedRewardIndices: [...prev.pickedRewardIndices, index],
-                player: {
-                    ...prev.player,
-                    inventory: [...prev.player.inventory, item],
-                },
-            };
-        });
+                return {
+                    ...prev,
+                    pickedRewardIndices: [...prev.pickedRewardIndices, index],
+                    player: {
+                        ...prev.player,
+                        inventory: [...prev.player.inventory, item],
+                    },
+                };
+            },
+            this.meta('reward.pick', 'Player picked reward', { index, itemId: item.id })
+        );
     }
 
     prepareNextLevel() {
@@ -78,32 +87,34 @@ export class RewardService {
 
         const meta = this.deps.getMetaState();
 
-        this.store.updateState(prev =>
-            applyEnvironmentRules({
-                ...prev,
-                runLevel: nextLevel,
-                roundCount: 1,
-                targetScore: TARGET_SCORE,
-                phase: GamePhase.BATTLE,
-                player: {
-                    ...prev.player,
-                    hp: STARTING_HP + meta.upgrades.hpLevel,
-                    hand: [],
-                    score: 0,
-                    shield: 0,
-                },
-                enemy: getRandomEnemy(nextLevel),
-                activeEnvironment: envCards,
-                deck: createDeck(),
-                discardPile: [],
-                turnOwner: 'PLAYER',
-                playerStood: false,
-                enemyStood: false,
-                message: `Level ${nextLevel} Started.`,
-                goldEarnedThisLevel: 0,
-                rewardOptions: [],
-                pickedRewardIndices: [],
-            })
+        this.store.updateState(
+            prev =>
+                applyEnvironmentRules({
+                    ...prev,
+                    runLevel: nextLevel,
+                    roundCount: 1,
+                    targetScore: TARGET_SCORE,
+                    phase: GamePhase.BATTLE,
+                    player: {
+                        ...prev.player,
+                        hp: STARTING_HP + meta.upgrades.hpLevel,
+                        hand: [],
+                        score: 0,
+                        shield: 0,
+                    },
+                    enemy: getRandomEnemy(nextLevel),
+                    activeEnvironment: envCards,
+                    deck: createDeck(),
+                    discardPile: [],
+                    turnOwner: 'PLAYER',
+                    playerStood: false,
+                    enemyStood: false,
+                    message: `Level ${nextLevel} Started.`,
+                    goldEarnedThisLevel: 0,
+                    rewardOptions: [],
+                    pickedRewardIndices: [],
+                }),
+            this.meta('next-level', 'Prepare next level', { level: nextLevel })
         );
     }
 
@@ -145,10 +156,13 @@ export class RewardService {
             const bonus = this.resolveGoldEffect(effect);
             if (bonus <= 0) return;
             this.deps.updateMetaState(prev => ({ ...prev, gold: prev.gold + bonus }));
-            this.store.updateState(prev => ({
-                ...prev,
-                goldEarnedThisLevel: prev.goldEarnedThisLevel + bonus,
-            }));
+            this.store.updateState(
+                prev => ({
+                    ...prev,
+                    goldEarnedThisLevel: prev.goldEarnedThisLevel + bonus,
+                }),
+                this.meta('gold', 'Awarded gold bonus', { amount: bonus })
+            );
             this.eventBus.emit({
                 type: 'damage.number',
                 payload: { value: `+${bonus} Gold`, target: 'PLAYER', variant: 'GOLD' },
@@ -164,5 +178,19 @@ export class RewardService {
         const offset = Number(effect.metadata.perLevelOffset) || 0;
         const runLevel = this.store.snapshot.state.runLevel;
         return Math.max(0, runLevel - offset) * base;
+    }
+
+    private meta(
+        tag: string,
+        description: string,
+        payload?: Record<string, unknown>,
+        extra?: Partial<StoreUpdateMeta>
+    ): StoreUpdateMeta {
+        return {
+            tag: `reward:${tag}`,
+            description,
+            ...(payload ? { payload } : {}),
+            ...extra,
+        };
     }
 }
