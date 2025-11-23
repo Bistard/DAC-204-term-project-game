@@ -1,0 +1,5 @@
+{
+  "name": "Blackjack (v0.4)",
+  "description": "A pixel-art western survival roguelike card game where 21 is the magic number.",
+  "requestFramePermissions": []
+}
