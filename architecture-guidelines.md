@@ -1,63 +1,165 @@
-# LAST HAND 架构指引
+# Last Hand - 架构设计文档 (Architecture Design)
 
-本文档提供《LAST HAND》（Blackjack 风格 Roguelike）的整体软件架构设计指导，确保后续实现保持模块化、可测试、可扩展。主要内容涵盖「一、整体架构设计（概念框架，方便后面实现）」。
+## 1. 项目现状分析 (Current State Analysis)
 
----
+### 1.1 产品形态
+"Last Hand" 是一个单页应用 (SPA) 的 Roguelike 卡牌游戏。核心玩法是基于 21 点的数值博弈，包含 RPG 元素（道具、生命值、护盾）。视觉风格强烈，依赖 CSS 动画和 DOM 操作来表现打击感。
 
-## 一、整体架构设计（概念框架，方便后面实现）
-
-### 1.1 层次划分
-
-| 层 | 作用 | 关键注意点 |
-| --- | --- | --- |
-| Presentation 层（UI/Rendering） | 处理界面、动画、输入映射 | 不包含规则逻辑；通过事件或指令与上层交互 |
-| Game/Application 层 | 控制场景/状态切换（主菜单、战斗、结算、升级）与游戏循环 | 不直接操作 UI DOM，而是与 Presentation 层协作 |
-| Domain/Rules 层 | Blackjack 规则、卡牌系统、敌人 AI、结算逻辑、Roguelike 进程等纯逻辑 | 必须与 UI 解耦，保持可单独测试 |
-| Infrastructure 层 | 存档、配置加载、日志、音频等跨领域服务 | 通过接口暴露服务，避免直接耦合实现 |
-
-> 目标：UI ↔ 游戏流程 ↔ 领域逻辑 完全分层，任何层次都可被替换或独立测试。
-
-### 1.2 核心模块与职责
-
-- **BlackjackCore**：处理 21 点发牌/点数/胜负判定。
-- **CardSystem**：卡牌、牌堆、手牌、效果执行（技能卡/道具卡/规则修改卡），以数据驱动方式扩展。
-- **CombatSystem**：玩家/敌人 HP、伤害计算、回合流程（玩家 → 敌人 → 结算），从 BlackjackCore 接收结果并转化为战斗效果。
-- **EnemyAI**：不同敌人行为（贪心、防守、干扰、腐化等）和技能触发。
-- **Progression/Roguelike**：Run 生命周期、奖励计算、永久升级、解锁内容。
-- **GameMode/Survival**：控制无尽模式的波次生成、难度曲线。
-- **UI & Input**：战斗 UI、牌桌布局、按钮、手牌交互、信息提示。
-- **Persistence**：存档/读档、数据版本管理、设置存储。
-
-每个模块都应该通过显式接口暴露行为，例如 `IBlackjackRules`, `ICardEffect`, `IAIBehavior` 等，保证测试与替换的灵活性。
-
-### 1.3 SOLID 原则的应用
-
-- **S（Single Responsibility）**  
-  - `BlackjackCore` 只管 21 点规则，不处理 HP；  
-  - `Progression` 只负责 Roguelike 资源与升级；  
-  - `EnemyAI` 只决策行为，不处理 UI。
-
-- **O（Open/Closed）**  
-  - 新卡牌、新敌人通过配置或实现接口扩展，而非修改核心规则；  
-  - `CardEffect` 和 `EnemyAI` 使用多态注册，减少核心代码变动。
-
-- **L（Liskov Substitution）**  
-  - 所有敌人实现统一 `Enemy` 抽象，可在场景中自由替换；  
-  - 所有 `CardEffect` 都必须在相同上下文接口下运作，确保替换安全。
-
-- **I（Interface Segregation）**  
-  - 切分能力接口：`IDamageable`, `ICardPlayable`, `IAIController` 等，避免臃肿的“万能接口”；  
-  - UI 模块只需订阅它们关心的事件接口。
-
-- **D（Dependency Inversion）**  
-  - 高层模块（如 `CombatSystem`）依赖抽象接口，而非具体实现；  
-  - 通过依赖注入/工厂实现具体绑定，方便测试与替换。
+### 1.2 现有代码结构问题 (Pain Points)
+目前项目是典型的 **"God Component" (上帝组件)** 模式：
+*   **高耦合 (High Coupling)**: `App.tsx` 管理了所有事务——游戏循环、状态更新、AI 决策、动画触发、UI 渲染。
+*   **逻辑与视图混杂**: 游戏规则（如“爆牌扣血”）直接写在 React 组件的 `useEffect` 或事件处理函数中。如果不运行 React，无法测试游戏逻辑。
+*   **拓展性差**: 新增一种“回合结束自动回血”的敌人或“抽牌时触发特效”的道具，需要修改 `App.tsx` 的核心流程，风险极高。
+*   **动画状态地狱**: 使用 `setTimeout` (`sleep`) 硬编码动画时间，导致逻辑执行必须等待动画结束，容易产生 Race Condition（竞态条件）。
 
 ---
 
-上述架构确保：  
-1. **可扩展**：新卡牌/敌人/模式可最小改动接入。  
-2. **可测试**：核心玩法无需 UI 即可进行单元或集成测试。  
-3. **可维护**：职责清晰，便于多人协作与后续迭代。  
+## 2. 架构设计目标 (Design Goals)
 
-后续所有功能需求都应在此框架下落位，避免跨层耦合。***
+1.  **逻辑视图分离 (Separation of Logic & View)**: 核心游戏规则应纯粹（Pure Typescript），不依赖 React。
+2.  **事件驱动 (Event-Driven)**: 逻辑层只负责改变数据，并抛出“事件”；UI 层监听事件并播放动画。
+3.  **数据驱动内容 (Data-Driven Content)**: 道具、敌人、环境卡应通过配置定义行为，而非硬编码在 Switch 语句中。
+4.  **轻量级 (Lightweight)**: 不引入 Redux/MobX 等重型库，使用 React `useReducer` + Context 配合自定义 Engine 类即可。
+
+---
+
+## 3. 核心架构图 (Core Architecture)
+
+我们将应用拆分为三层：**Domain (核心域)**, **State (状态层)**, **View (视图层)**。
+
+```mermaid
+graph TD
+    User[玩家交互] --> ViewLayer
+    
+    subgraph View Layer [视图层 (React)]
+        Components[UI Components]
+        AnimSystem[动画编排系统]
+    end
+
+    subgraph State Layer [状态层 (React Context/Hooks)]
+        GameContext[Game Context]
+        Dispatcher[Action Dispatcher]
+    end
+
+    subgraph Domain Layer [核心域 (Pure TS)]
+        GameEngine[Game Engine / Reducer]
+        Rules[规则计算 (Score, Damage)]
+        AI[AI 决策模块]
+        Registry[内容注册表 (Items/Enemies)]
+    end
+
+    ViewLayer --> Dispatcher
+    Dispatcher --> GameEngine
+    GameEngine --> NewState
+    GameEngine --> GameEvents[事件队列 (Events)]
+    
+    NewState --> GameContext --> Components
+    GameEvents --> AnimSystem --> Components
+```
+
+---
+
+## 4. 详细模块设计 (Detailed Design)
+
+### 4.1 Domain Layer (核心域 - `src/engine/`)
+这是游戏的“大脑”。它不包含任何 JSX 代码。
+
+*   **`types.ts`**: 保持现有的类型定义，但增加 `GameEvent` 类型。
+*   **`GameState`**: 纯数据结构。
+*   **`Reducer`**: 处理 `Action` (HIT, STAND, USE_ITEM) 并返回新的 `State`。
+    *   *优势*: 状态变化是原子性的，易于调试和测试。
+*   **`Systems`**: 独立的逻辑单元。
+    *   `ScoreSystem`: 计算手牌分数。
+    *   `CombatSystem`: 结算回合伤害。
+    *   `AISystem`: 决定敌人行动。
+*   **`ContentRegistry`**:
+    *   道具和敌人不再是简单的对象，而是拥有 `Behavior` 钩子的实体。
+    *   例如道具定义包含：`onUse`, `onTurnStart`, `onDamageTaken` 等钩子。
+
+### 4.2 State Layer (状态层 - `src/hooks/`)
+连接 React 和 Engine 的桥梁。
+
+*   **`useGameEngine`**: 封装 `useReducer`。
+*   **`EventQueue`**: 一个关键设计。当 Engine 处理完逻辑（例如玩家扣血），除了更新 State，还会 Push 一个事件 `{ type: 'DAMAGE_TAKEN', target: 'PLAYER', amount: 5 }` 到队列。
+*   **`GameProvider`**: 将 State 和 Dispatch 方法通过 Context 暴露给组件。
+
+### 4.3 View Layer (视图层 - `src/components/` & `src/features/`)
+只负责“怎么显示”，不负责“怎么计算”。
+
+*   **纯展示组件**: `Card`, `HealthBar` 保持不变，只接收 Props。
+*   **功能组件**: `PlayerArea`, `EnemyArea` 从 Context 获取数据。
+*   **动画控制器 (`GameScene.tsx`)**:
+    *   监听 `EventQueue`。
+    *   当收到 `DAMAGE_TAKEN` 事件时，触发 CSS 动画或 Screen Shake。
+    *   *解耦关键*: 逻辑状态瞬间完成更新，动画只是对过去发生的事件的“回放”。
+
+---
+
+## 5. 目录结构规划 (Directory Structure)
+
+```text
+src/
+├── assets/             # 静态资源
+├── components/         # 通用 UI 组件 (Button, Card, HealthBar)
+│   ├── ui/             # 纯视觉组件
+│   └── animation/      # 动画相关组件 (Effects, FloatingText)
+├── config/             # 游戏配置常量 (Starting HP, Deck Config)
+├── content/            # 游戏内容定义 (数据驱动)
+│   ├── enemies.ts      # 敌人数据
+│   ├── items.ts        # 道具逻辑实现
+│   └── environments.ts # 环境卡逻辑
+├── engine/             # 核心逻辑 (无 React)
+│   ├── actions.ts      # Reducer Actions 定义
+│   ├── reducer.ts      # 核心状态机
+│   ├── systems/        # 子系统 (AI, Scoring, Combat)
+│   └── utils.ts        # 纯函数工具 (createDeck, shuffle)
+├── hooks/              # React 胶水层
+│   ├── useGame.ts      # 访问 Context
+│   └── useGameLoop.ts  # 处理回合流转
+├── layouts/            # 页面级布局
+└── types/              # 全局类型定义
+```
+
+---
+
+## 6. 关键技术难点解决方案
+
+### 6.1 解决 "Wait for Animation" (等待动画)
+目前的 `await sleep(1000)` 方式阻塞了主线程逻辑，且难以维护。
+
+**新方案**: **UI 锁 (UI Locking)**
+1.  用户点击 "HIT"。
+2.  Engine 立即更新状态（手牌增加），并发出 `CARD_DRAWN` 事件。
+3.  Engine 设置 `inputLocked = true`。
+4.  UI 收到 `CARD_DRAWN` 事件，播放发牌动画（约 0.5s）。
+5.  动画组件播放完毕后，调用 `dispatch({ type: 'ANIMATION_COMPLETE' })`。
+6.  Engine 收到完成信号，若无其他挂起事件，设置 `inputLocked = false`。
+
+### 6.2 解决扩展性 (Extensibility)
+目前道具效果是硬编码的。
+
+**新方案**: **Effect System (效果系统)**
+道具不再直接修改 State，而是返回一系列 **Effects**。
+```typescript
+// 旧方式
+if (item.id === 'heal') state.player.hp += 3;
+
+// 新方式
+item.effect = (context) => [
+  { type: 'HEAL', target: 'PLAYER', amount: 3 },
+  { type: 'SPAWN_TEXT', text: 'REPAIRED', color: 'green' }
+];
+```
+Engine 遍历处理这些 Effect。这样新增一种“吸血”效果，只需在 Engine 的 Effect 处理器中增加一种 Case，所有道具都可以复用。
+
+---
+
+## 7. 迁移路线图 (Migration Roadmap)
+
+1.  **第一步 (Refactor Types)**: 将 `types.ts` 移动并完善，拆分 `GamePhase` 和 `Entity` 定义。
+2.  **第二步 (Extract Logic)**: 将 `calculateScore`, `createDeck` 等纯函数移入 `engine/utils.ts`。
+3.  **第三步 (Build Reducer)**: 创建 `engine/reducer.ts`，将 `App.tsx` 中的 `hit`, `stand`, `useItem` 逻辑转化为 reducer switch cases。
+4.  **第四步 (Context Setup)**: 建立 `GameProvider`，替换 `App.tsx` 的 `useState`。
+5.  **第五步 (Event System)**: 实现简单的事件队列，将动画逻辑从核心逻辑中剥离。
+6.  **第六步 (Cleanup)**: `App.tsx` 最终应该只包含 `<GameProvider><GameScene /></GameProvider>`，非常干净。
+
