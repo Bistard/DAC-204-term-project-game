@@ -1,7 +1,7 @@
 
-import { Card, Suit, Item, Enemy, EnvironmentCard } from '../types';
-import { ITEMS } from '../content/items';
-import { ENEMIES } from '../content/enemies';
+import { Card, Suit, Item, Enemy, EnvironmentCard, ItemDefinition, EnemyTemplate } from '../types';
+import { ITEM_DEFINITIONS } from '../content/items';
+import { ENEMY_TEMPLATES } from '../content/enemies';
 import { ENVIRONMENT_CARDS } from '../content/environments';
 import { ACE_VALUE, ACE_ADJUSTMENT, HP_SCALING_PER_LEVEL, MAX_INVENTORY_SLOTS } from '../constants';
 
@@ -51,12 +51,30 @@ export const createDeck = (): Card[] => {
   return deck;
 };
 
+const instantiateItem = (definition: ItemDefinition): Item => ({
+    ...definition,
+    instanceId: `${definition.id}-${Math.random().toString(36).substring(2, 8)}`,
+});
+
+const ITEM_DEFINITION_MAP = new Map(ITEM_DEFINITIONS.map(def => [def.id, def]));
+
+const pickRandomTemplate = <T>(templates: T[]): T => {
+    return templates[Math.floor(Math.random() * templates.length)];
+};
+
 export const getRandomItems = (count: number): Item[] => {
     const items: Item[] = [];
     for (let i = 0; i < count; i++) {
-        items.push(ITEMS[Math.floor(Math.random() * ITEMS.length)]);
+        const template = pickRandomTemplate<ItemDefinition>(ITEM_DEFINITIONS);
+        items.push(instantiateItem(template));
     }
     return items;
+};
+
+export const createItemById = (id: string): Item | null => {
+    const template = ITEM_DEFINITION_MAP.get(id);
+    if (!template) return null;
+    return instantiateItem(template);
 };
 
 export const getRandomEnvironment = (count: number): EnvironmentCard[] => {
@@ -65,22 +83,27 @@ export const getRandomEnvironment = (count: number): EnvironmentCard[] => {
 };
 
 export const getRandomEnemy = (level: number): Enemy => {
-    const available = ENEMIES.filter(e => 
-        level > 5 ? true : e.difficulty <= Math.ceil(level / 2)
+    const eligible = ENEMY_TEMPLATES.filter(template =>
+        level > 5 ? true : template.difficulty <= Math.ceil(level / 2)
     );
-    const template = available[Math.floor(Math.random() * available.length)];
+    const template = pickRandomTemplate<EnemyTemplate>(eligible.length ? eligible : ENEMY_TEMPLATES);
     
     // Dynamic HP scaling based on level
     const hpScale = Math.floor((level - 1) * HP_SCALING_PER_LEVEL); 
     
     return {
-        ...template,
-        id: `${template.id}-${Date.now()}`,
-        hp: template.hp + hpScale,
-        maxHp: template.maxHp + hpScale,
-        inventory: [], 
+        id: `${template.id}-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+        templateId: template.id,
+        name: template.name,
+        description: template.description,
+        difficulty: template.difficulty,
+        aiType: template.aiProfile,
+        hp: template.baseHp + hpScale,
+        maxHp: template.baseHp + hpScale,
+        shield: template.baseShield ?? 0,
         hand: [],
         score: 0,
-        maxInventory: MAX_INVENTORY_SLOTS,
+        inventory: [],
+        maxInventory: template.maxInventory ?? MAX_INVENTORY_SLOTS,
     };
 };

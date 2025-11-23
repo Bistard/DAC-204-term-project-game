@@ -27,8 +27,8 @@ export const COST_UPGRADE_HP = [5, 10, 15, 20, 25];
 export const COST_UPGRADE_INVENTORY = [15, 30, 50];
 
 // Damage & Scaling
-export const DAMAGE_BUST_PLAYER = 3;
-export const DAMAGE_BUST_ENEMY = 3;
+export const DAMAGE_BUST_PLAYER = 10;
+export const DAMAGE_BUST_ENEMY = 10;
 export const HP_SCALING_PER_LEVEL = 2;
 
 // AI Behavior Thresholds
@@ -50,8 +50,4 @@ export const DELAY_XL = 2500;
 export const DELAY_TURN_END = 4500;
 export const DELAY_ITEM_USE = 3000;
 
-// Re-exports for legacy support or centralized access
-export { ITEMS } from './content/items';
-export { ENEMIES } from './content/enemies';
-export { ENVIRONMENT_CARDS } from './content/environments';
-export { createDeck } from './engine/utils';
+// Note: gameplay data (items, enemies, environments, events) now live in /content and should be imported directly there.

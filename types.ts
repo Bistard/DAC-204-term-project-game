@@ -1,108 +1,150 @@
-
 import React from 'react';
 
 export enum Suit {
-  Hearts = '♥',
-  Diamonds = '♦',
-  Clubs = '♣',
-  Spades = '♠',
+    Hearts = '♥',
+    Diamonds = '♦',
+    Clubs = '♣',
+    Spades = '♠',
 }
 
 export interface Card {
-  suit: Suit;
-  rank: string;
-  value: number; // 1-11
-  id: string;
-  isFaceUp: boolean;
-  isAce: boolean;
+    suit: Suit;
+    rank: string;
+    value: number;
+    id: string;
+    isFaceUp: boolean;
+    isAce: boolean;
 }
 
 export enum ItemType {
-  CONSUMABLE = 'CONSUMABLE',
-  PASSIVE = 'PASSIVE',
+    CONSUMABLE = 'CONSUMABLE',
+    PASSIVE = 'PASSIVE',
 }
 
-export interface Item {
-  id: string;
-  name: string;
-  description: string;
-  effect: (gameState: GameState) => Partial<GameState>;
-  type: ItemType;
+export type TargetScope = 'SELF' | 'OPPONENT' | 'BOTH';
+
+export type LogicEffectType =
+    | 'HEAL'
+    | 'SHIELD'
+    | 'DRAW'
+    | 'DAMAGE_MULTIPLIER'
+    | 'FORCE_REVEAL'
+    | 'SET_TARGET_SCORE'
+    | 'GOLD';
+
+export interface LogicEffectConfig {
+    type: LogicEffectType;
+    scope?: TargetScope;
+    amount?: number;
+    cards?: number;
+    metadata?: Record<string, number | string | boolean>;
+    duration?: 'INSTANT' | 'ROUND' | 'RUN';
+}
+
+export interface ItemDefinition {
+    id: string;
+    name: string;
+    description: string;
+    type: ItemType;
+    effects: LogicEffectConfig[];
+}
+
+export interface Item extends ItemDefinition {
+    instanceId: string;
 }
 
 export interface EnvironmentCard {
-  id: string;
-  name: string;
-  description: string;
+    id: string;
+    name: string;
+    description: string;
+    effects: LogicEffectConfig[];
 }
 
 export interface Entity {
-  hp: number;
-  maxHp: number;
-  hand: Card[];
-  score: number; // Hand value
-  shield: number;
+    hp: number;
+    maxHp: number;
+    hand: Card[];
+    score: number;
+    shield: number;
+}
+
+export type EnemyAIProfile = 'GREEDY' | 'DEFENSIVE' | 'RANDOM';
+
+export interface EnemyTemplate {
+    id: string;
+    name: string;
+    description: string;
+    difficulty: number;
+    baseHp: number;
+    baseShield?: number;
+    aiProfile: EnemyAIProfile;
+    maxInventory?: number;
 }
 
 export interface Enemy extends Entity {
-  name: string;
-  id: string;
-  difficulty: number;
-  aiType: 'GREEDY' | 'DEFENSIVE' | 'RANDOM';
-  description: string;
-  inventory: Item[];
-  maxInventory: number;
+    name: string;
+    id: string;
+    templateId: string;
+    difficulty: number;
+    aiType: EnemyAIProfile;
+    description: string;
+    inventory: Item[];
+    maxInventory: number;
 }
 
 export enum GamePhase {
-  MENU = 'MENU',
-  BATTLE = 'BATTLE', // Alternating turns
-  VICTORY = 'VICTORY', // Transition phase after killing enemy
-  REWARD = 'REWARD', // End of level reward
-  GAME_OVER = 'GAME_OVER',
+    MENU = 'MENU',
+    BATTLE = 'BATTLE',
+    VICTORY = 'VICTORY',
+    REWARD = 'REWARD',
+    GAME_OVER = 'GAME_OVER',
 }
 
 export type TurnOwner = 'PLAYER' | 'ENEMY';
 
 export interface GameState {
-  phase: GamePhase;
-  // Battle State
-  turnOwner: TurnOwner;
-  playerStood: boolean;
-  enemyStood: boolean;
-  
-  // Global State
-  targetScore: number; // The score to hit (usually 21)
-  roundCount: number; // Rounds within current fight
-  runLevel: number;
-  activeEnvironment: EnvironmentCard[];
-  
-  player: Entity & {
-    inventory: Item[];
-    maxInventory: number;
-    deckModifier: number;
-  };
-  enemy: Enemy | null;
-  deck: Card[]; // Shared 13 card deck
-  discardPile: Card[]; // Needed for reshuffling small deck
-  
-  // UI
-  message: string;
+    phase: GamePhase;
+    turnOwner: TurnOwner;
+    playerStood: boolean;
+    enemyStood: boolean;
+    targetScore: number;
+    roundCount: number;
+    runLevel: number;
+    activeEnvironment: EnvironmentCard[];
+    player: Entity & {
+        inventory: Item[];
+        maxInventory: number;
+        deckModifier: number;
+    };
+    enemy: Enemy | null;
+    deck: Card[];
+    discardPile: Card[];
+    message: string;
+    rewardOptions: Item[];
+    pickedRewardIndices: number[];
+    goldEarnedThisLevel: number;
 }
 
-// --- Meta Progression ---
+export interface RuntimeFlags {
+    isDealing: boolean;
+    isProcessingAI: boolean;
+    isResolvingRound: boolean;
+}
+
+export interface GameSnapshot {
+    state: GameState;
+    flags: RuntimeFlags;
+}
 
 export interface MetaUpgrades {
-    hpLevel: number; // 0 to 5
-    inventoryLevel: number; // 0 to 3
+    hpLevel: number;
+    inventoryLevel: number;
 }
 
 export interface MetaState {
     gold: number;
     upgrades: MetaUpgrades;
 }
-
-// --- UI State Types ---
 
 export interface DamageNumber {
     id: string;
@@ -121,3 +163,13 @@ export interface ClashState {
 }
 
 export type HandAction = 'IDLE' | 'HIT' | 'STAND' | 'USE' | 'HURT' | 'LEAVE';
+
+export type GameEvent =
+    | { type: 'hand.action'; payload: { actor: TurnOwner; action: HandAction; duration?: number } }
+    | { type: 'visual.effect'; payload: { effect: string; duration?: number } }
+    | { type: 'damage.number'; payload: { value: number | string; target: TurnOwner; variant: 'DAMAGE' | 'HEAL' | 'GOLD' } }
+    | { type: 'item.animation'; payload: { actor: TurnOwner; item: Item; index?: number; phase: 'START' | 'END' } }
+    | { type: 'environment.animation'; payload: { card: EnvironmentCard; state: 'entering' | 'holding' | 'exiting' } }
+    | { type: 'clash.state'; payload: ClashState };
+
+export type GameEventListener = (event: GameEvent) => void;
