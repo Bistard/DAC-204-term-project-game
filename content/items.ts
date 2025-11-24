@@ -180,6 +180,68 @@ export const ITEM_DEFINITIONS: ItemDefinition[] = [
       },
     ],
   },
+  {
+    id: 'chaos',
+    name: 'Chaos',
+    description: 'Trigger a random item effect and draw 1 item card.',
+    type: ItemType.CONSUMABLE,
+    effects: [
+      {
+        type: 'RANDOM_ITEM_EFFECT',
+        metadata: {
+          maxRolls: 10,
+        }
+      },
+      {
+        type: 'GAIN_RANDOM_ITEMS',
+        scope: 'SELF',
+        amount: 1,
+      },
+    ],
+  },
+  {
+    id: 'reckless_scan',
+    name: 'Reckless Scan',
+    description: 'Draw 1 card. If you do not bust, the round loser suffers +2 damage.',
+    type: ItemType.CONSUMABLE,
+    effects: [
+      {
+        type: 'DRAW',
+        cards: 1,
+      },
+      {
+        type: 'PENDING_LOSER_DAMAGE',
+        amount: 2,
+        metadata: { requireSafeScore: true },
+      },
+    ],
+  },
+  {
+    id: 'life_siphon',
+    name: 'Life Siphon',
+    description: 'Drain 1 HP from the opponent and heal yourself for 1 HP.',
+    type: ItemType.CONSUMABLE,
+    effects: [
+      {
+        type: 'LIFE_DRAIN',
+        scope: 'OPPONENT',
+        amount: 1,
+      },
+    ],
+  },
+  {
+    id: 'cache_overclock',
+    name: 'Cache Overclock',
+    description: 'Restore HP equal to the number of item cards you currently hold.',
+    type: ItemType.CONSUMABLE,
+    effects: [
+      {
+        type: 'HEAL_PER_INVENTORY',
+        scope: 'SELF',
+        metadata: { perItem: 1 },
+      },
+    ],
+  },
 ];
 
 export const ITEMS: Item[] = ITEM_DEFINITIONS.map(definition => ({

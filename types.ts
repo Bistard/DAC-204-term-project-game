@@ -42,7 +42,11 @@ export type LogicEffectType =
     | 'DAMAGE_MULTIPLIER'
     | 'FORCE_REVEAL'
     | 'SET_TARGET_SCORE'
-    | 'GOLD';
+    | 'GOLD'
+    | 'RANDOM_ITEM_EFFECT'
+    | 'PENDING_LOSER_DAMAGE'
+    | 'LIFE_DRAIN'
+    | 'HEAL_PER_INVENTORY';
 
 export interface LogicEffectConfig {
     type: LogicEffectType;
@@ -118,6 +122,7 @@ export interface RoundModifierState {
     damageAdjustments: Record<TurnOwner, number>;
     damageImmunity: Record<TurnOwner, boolean>;
     targetScoreOverride: number | null;
+    loserDamageBonus: number;
 }
 
 export interface GameState {

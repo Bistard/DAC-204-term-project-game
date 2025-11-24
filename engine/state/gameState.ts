@@ -5,6 +5,7 @@ export const createDefaultRoundModifiers = (): RoundModifierState => ({
     damageAdjustments: { PLAYER: 0, ENEMY: 0 },
     damageImmunity: { PLAYER: false, ENEMY: false },
     targetScoreOverride: null,
+    loserDamageBonus: 0,
 });
 
 export const createInitialGameState = (metaState: MetaState): GameState => ({
@@ -60,6 +61,7 @@ export const cloneGameState = (state: GameState): GameState => ({
         damageAdjustments: { ...state.roundModifiers.damageAdjustments },
         damageImmunity: { ...state.roundModifiers.damageImmunity },
         targetScoreOverride: state.roundModifiers.targetScoreOverride,
+        loserDamageBonus: state.roundModifiers.loserDamageBonus,
     },
     activeEnvironment: [...state.activeEnvironment],
     player: {

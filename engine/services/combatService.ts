@@ -50,7 +50,9 @@ export class CombatService {
     private store: GameStore;
     private eventBus: EventBus;
     private aiTimer: ReturnType<typeof setTimeout> | null = null;
-    private effectHandlers: Partial<Record<LogicEffectType, (effect: LogicEffectConfig, actor: TurnOwner) => Promise<void>>> = {};
+    private effectHandlers: Partial<
+        Record<LogicEffectType, (effect: LogicEffectConfig, actor: TurnOwner, source?: Item) => Promise<void>>
+    > = {};
 
     constructor(private deps: CombatServiceDeps) {
         this.store = deps.store;
@@ -71,6 +73,10 @@ export class CombatService {
             GAIN_RANDOM_ITEMS: async (effect, actor) => this.grantRandomItems(effect, actor),
             SELF_DAMAGE: async (effect, actor) => this.applySelfInflictedDamage(effect, actor),
             SET_TEMP_TARGET_SCORE: async (effect, _actor) => this.setTemporaryTargetScore(effect),
+            RANDOM_ITEM_EFFECT: async (effect, actor, source) => this.applyRandomItemEffect(effect, actor, source),
+            PENDING_LOSER_DAMAGE: async (effect, actor) => this.applyPendingLoserDamage(effect, actor),
+            LIFE_DRAIN: async (effect, actor) => this.applyLifeDrain(effect, actor),
+            HEAL_PER_INVENTORY: async (effect, actor) => this.applyInventoryHeal(effect, actor),
         };
     }
 
@@ -429,7 +435,7 @@ export class CombatService {
         for (const effect of item.effects) {
             const handler = this.effectHandlers[effect.type];
             if (!handler) continue;
-            await handler(effect, actor);
+            await handler(effect, actor, item);
         }
     }
 
@@ -763,6 +769,112 @@ export class CombatService {
         );
     }
 
+    private async applyRandomItemEffect(effect: LogicEffectConfig, actor: TurnOwner, sourceItem?: Item) {
+        const rawMax = Number(effect.metadata?.maxRolls ?? 10);
+        const maxAttempts = Number.isFinite(rawMax) && rawMax > 0 ? Math.floor(rawMax) : 10;
+        let rolled: Item | null = null;
+
+        for (let attempt = 0; attempt < maxAttempts; attempt++) {
+            const [candidate] = getRandomItems(1);
+            if (sourceItem && candidate.id === sourceItem.id) continue;
+            if (candidate.effects.length === 0) continue;
+            rolled = candidate;
+            break;
+        }
+
+        if (!rolled) return;
+
+        const effectIndex = Math.floor(Math.random() * rolled.effects.length);
+        const sourceEffect = rolled.effects[effectIndex];
+        const borrowedEffect: LogicEffectConfig = {
+            ...sourceEffect,
+            metadata: sourceEffect.metadata ? { ...sourceEffect.metadata } : undefined,
+        };
+        const handler = this.effectHandlers[borrowedEffect.type];
+        if (!handler) return;
+
+        this.store.updateState(
+            prev => ({
+                ...prev,
+                message: `Random effect borrowed from ${rolled.name}.`,
+            }),
+            this.createMeta('effect.randomItem', 'Triggered random item effect', {
+                actor,
+                sourceItem: sourceItem?.id ?? null,
+                borrowedItem: rolled.id,
+                effectType: borrowedEffect.type,
+            })
+        );
+
+        await handler(borrowedEffect, actor, rolled);
+    }
+
+    private applyPendingLoserDamage(effect: LogicEffectConfig, actor: TurnOwner) {
+        const amount = Math.floor(effect.amount ?? 0);
+        if (amount <= 0) return;
+        const requireSafeScore = effect.metadata?.requireSafeScore !== false;
+        const snapshot = this.store.snapshot;
+        const entity = actor === 'PLAYER' ? snapshot.state.player : snapshot.state.enemy;
+        if (!entity) return;
+        const withinTarget = entity.score <= snapshot.state.targetScore;
+        if (requireSafeScore && !withinTarget) return;
+
+        this.store.updateState(
+            prev => ({
+                ...prev,
+                roundModifiers: {
+                    ...prev.roundModifiers,
+                    loserDamageBonus: prev.roundModifiers.loserDamageBonus + amount,
+                },
+                message: `Round loser suffers +${amount} damage.`,
+            }),
+            this.createMeta('effect.pendingLoserDamage', 'Queued loser damage bonus', { actor, amount })
+        );
+    }
+
+    private applyLifeDrain(effect: LogicEffectConfig, actor: TurnOwner) {
+        const amount = Math.floor(effect.amount ?? 0);
+        if (amount <= 0) return;
+        const targets = this.resolveTargets(actor, effect.scope ?? 'OPPONENT').filter(target => target !== actor);
+        if (!targets.length) return;
+        let drainedTotal = 0;
+        targets.forEach(target => {
+            drainedTotal += this.applyDamage(target, amount);
+        });
+        if (drainedTotal <= 0) return;
+        this.applyHeal(
+            {
+                type: 'HEAL',
+                amount: drainedTotal,
+                scope: 'SELF',
+            },
+            actor
+        );
+    }
+
+    private applyInventoryHeal(effect: LogicEffectConfig, actor: TurnOwner) {
+        const perItemRaw = Number(effect.metadata?.perItem ?? 1);
+        const perItem = Number.isFinite(perItemRaw) ? perItemRaw : 1;
+        const flatRaw = Number(effect.metadata?.flatBonus ?? 0);
+        const flatBonus = Number.isFinite(flatRaw) ? flatRaw : 0;
+        const targets = this.resolveTargets(actor, effect.scope);
+        const snapshot = this.store.snapshot;
+        targets.forEach(target => {
+            const entity = target === 'PLAYER' ? snapshot.state.player : snapshot.state.enemy;
+            if (!entity) return;
+            const amount = Math.floor(entity.inventory.length * perItem + flatBonus);
+            if (amount <= 0) return;
+            this.applyHeal(
+                {
+                    type: 'HEAL',
+                    amount,
+                    scope: 'SELF',
+                },
+                target
+            );
+        });
+    }
+
     private resolveTargets(actor: TurnOwner, scope: LogicEffectConfig['scope']): TurnOwner[] {
         if (scope === 'BOTH') return ['PLAYER', 'ENEMY'] as TurnOwner[];
         if (scope === 'OPPONENT') return [actor === 'PLAYER' ? 'ENEMY' : 'PLAYER'];
@@ -822,7 +934,8 @@ export class CombatService {
                     adjustments.ENEMY !== 0 ||
                     immunity.PLAYER ||
                     immunity.ENEMY ||
-                    prev.roundModifiers.targetScoreOverride !== null;
+                    prev.roundModifiers.targetScoreOverride !== null ||
+                    prev.roundModifiers.loserDamageBonus !== 0;
                 if (!needsReset) return prev;
                 return {
                     ...prev,
@@ -952,6 +1065,15 @@ export class CombatService {
             message = `Enemy Wins (${snapshot.state.enemy?.score ?? 0} vs ${snapshot.state.player.score})`;
         }
 
+        const loserBonus = snapshot.state.roundModifiers.loserDamageBonus ?? 0;
+        if (loserBonus > 0) {
+            if (playerDamage > 0 && enemyDamage === 0) {
+                playerDamage += loserBonus;
+            } else if (enemyDamage > 0 && playerDamage === 0) {
+                enemyDamage += loserBonus;
+            }
+        }
+
         const resolvedPlayerDamage = this.resolveRoundDamage('PLAYER', playerDamage);
         const resolvedEnemyDamage = this.resolveRoundDamage('ENEMY', enemyDamage);
         if (resolvedPlayerDamage > 0) {
@@ -1017,10 +1139,11 @@ export class CombatService {
         }
     }
 
-    private applyDamage(target: TurnOwner, amount: number) {
+    private applyDamage(target: TurnOwner, amount: number): number {
         const multiplier = this.getDamageMultiplier(target);
         const finalAmount = Math.ceil(amount * multiplier);
         let blocked = 0;
+        let inflicted = 0;
         this.store.updateState(
             (prev: GameState) => {
                 const entity = target === 'PLAYER' ? prev.player : prev.enemy;
@@ -1035,6 +1158,7 @@ export class CombatService {
                     remaining -= blocked;
                 }
                 const hp = Math.max(0, entity.hp - remaining);
+                inflicted = entity.hp - hp;
                 const updated = { ...entity, hp, shield };
                 if (target === 'PLAYER') {
                     return { ...prev, player: updated } as GameState;
@@ -1047,6 +1171,7 @@ export class CombatService {
                 amount: amount,
                 finalAmount,
                 blocked,
+                inflicted,
             })
         );
 
@@ -1067,6 +1192,7 @@ export class CombatService {
                 payload: { effect: 'animate-shake-hard animate-flash-red', duration: DELAY_MEDIUM },
             });
         }
+        return inflicted;
     }
 
     private getForcedRevealCount() {
