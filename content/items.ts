@@ -159,7 +159,7 @@ export const ITEM_DEFINITIONS: ItemDefinition[] = [
   {
     id: 'precision_pull',
     name: 'Precision Pull',
-    description: 'Attempt to draw a specific value card. Value is set when the item is picked up.',
+    description: 'Attempt to draw a X.',
     type: ItemType.CONSUMABLE,
     effects: [
       {
@@ -171,7 +171,7 @@ export const ITEM_DEFINITIONS: ItemDefinition[] = [
   {
     id: 'target_override',
     name: 'Target Override',
-    description: 'Set this round\'s victory target to a random anomaly value when acquired.',
+    description: 'This round only, set the victory target to X.',
     type: ItemType.CONSUMABLE,
     effects: [
       {
