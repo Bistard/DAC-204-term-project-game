@@ -27,8 +27,8 @@ export const COST_UPGRADE_HP = [5, 10, 15, 20, 25];
 export const COST_UPGRADE_INVENTORY = [15, 30, 50];
 
 // Damage & Scaling
-export const DAMAGE_BUST_PLAYER = 10;
-export const DAMAGE_BUST_ENEMY = 10;
+export const DAMAGE_BUST_PLAYER = 3;
+export const DAMAGE_BUST_ENEMY = 3;
 export const HP_SCALING_PER_LEVEL = 2;
 
 // AI Behavior Thresholds

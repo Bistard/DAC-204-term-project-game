@@ -1,9 +1,25 @@
 import { ItemDefinition, ItemType, Item } from '../types';
 
+export const PRECISION_PULL_VALUES = [
+  { label: '1', value: 1 },
+  { label: '2', value: 2 },
+  { label: '3', value: 3 },
+  { label: '4', value: 4 },
+  { label: '5', value: 5 },
+  { label: '6', value: 6 },
+  { label: '7', value: 7 },
+  { label: '8', value: 8 },
+  { label: '9', value: 9 },
+  { label: '10', value: 10 },
+  { label: 'A', value: 11 },
+] as const;
+
+export const TARGET_OVERRIDE_VALUES = [18, 24, 27] as const;
+
 export const ITEM_DEFINITIONS: ItemDefinition[] = [
   {
-    id: 'potion_small',
-    name: 'Glitch Salve',
+    id: 'heal',
+    name: 'Heal',
     description: 'Recover 3 HP.',
     type: ItemType.CONSUMABLE,
     effects: [
@@ -15,28 +31,152 @@ export const ITEM_DEFINITIONS: ItemDefinition[] = [
     ],
   },
   {
-    id: 'shield_temp',
-    name: 'Firewall',
-    description: 'Gain 5 Shield.',
+    id: 'block',
+    name: 'Block Damage',
+    description: 'End of round, block 3 incoming damage.',
     type: ItemType.CONSUMABLE,
     effects: [
       {
-        type: 'SHIELD',
+        type: 'RESOLUTION_DAMAGE_BUFFER',
         scope: 'SELF',
-        amount: 5,
+        amount: 3,
       },
     ],
   },
   {
-    id: 'reload',
-    name: 'Cache Clear',
-    description: 'Draw a card.',
+    id: 'overload',
+    name: 'Overload',
+    description: 'End of round, the enemy takes +2 extra damage.',
     type: ItemType.CONSUMABLE,
     effects: [
       {
-        type: 'DRAW',
+        type: 'RESOLUTION_DAMAGE_BOOST',
+        scope: 'OPPONENT',
+        amount: 2,
+      },
+    ],
+  },
+  {
+    id: 'lucky_me',
+    name: 'I\'m Lucky',
+    description: 'Attempt to draw the card that brings you closest to the current target.',
+    type: ItemType.CONSUMABLE,
+    effects: [
+      {
+        type: 'DRAW_OPTIMAL',
+      },
+    ],
+  },
+  {
+    id: 'swapper',
+    name: 'Swapper',
+    description: 'Swap the last drawn cards between you and the enemy.',
+    type: ItemType.CONSUMABLE,
+    effects: [
+      {
+        type: 'SWAP_LAST_CARD',
+      },
+    ],
+  },
+  {
+    id: 'enemy_rollback',
+    name: 'Enemy Rollback',
+    description: 'Return the enemy\'s last drawn card, shuffling it back into the deck.',
+    type: ItemType.CONSUMABLE,
+    effects: [
+      {
+        type: 'UNDO_LAST_DRAW',
+        scope: 'OPPONENT',
+      },
+    ],
+  },
+  {
+    id: 'self_rollback',
+    name: 'Self Rollback',
+    description: 'Undo your own last drawn card, shuffling it back into the deck.',
+    type: ItemType.CONSUMABLE,
+    effects: [
+      {
+        type: 'UNDO_LAST_DRAW',
         scope: 'SELF',
-        cards: 1,
+      },
+    ],
+  },
+  {
+    id: 'replace',
+    name: 'Replace',
+    description: 'Replace your last card and attempt to draw a new one.',
+    type: ItemType.CONSUMABLE,
+    effects: [
+      {
+        type: 'REPLACE_LAST_CARD',
+        scope: 'SELF',
+      },
+    ],
+  },
+  {
+    id: 'buffer_overflow',
+    name: 'Buffer Overflow',
+    description: 'Force the opponent to draw a card immediately.',
+    type: ItemType.CONSUMABLE,
+    effects: [
+      {
+        type: 'FORCE_DRAW',
+        scope: 'OPPONENT',
+      },
+    ],
+  },
+  {
+    id: 'take_a_chance',
+    name: 'Take a Chance',
+    description: 'Draw two random item cards, but suffer 2 damage.',
+    type: ItemType.CONSUMABLE,
+    effects: [
+      {
+        type: 'GAIN_RANDOM_ITEMS',
+        scope: 'SELF',
+        amount: 2,
+      },
+      {
+        type: 'SELF_DAMAGE',
+        scope: 'SELF',
+        amount: 2,
+      },
+    ],
+  },
+  {
+    id: 'immune',
+    name: 'Can\'t Hit Me',
+    description: 'Become immune to settlement damage this round.',
+    type: ItemType.CONSUMABLE,
+    effects: [
+      {
+        type: 'RESOLUTION_DAMAGE_IMMUNITY',
+        scope: 'SELF',
+      },
+    ],
+  },
+  {
+    id: 'precision_pull',
+    name: 'Precision Pull',
+    description: 'Attempt to draw a specific value card. Value is set when the item is picked up.',
+    type: ItemType.CONSUMABLE,
+    effects: [
+      {
+        type: 'DRAW_VALUE',
+        metadata: { targetValue: 0 },
+      },
+    ],
+  },
+  {
+    id: 'target_override',
+    name: 'Target Override',
+    description: 'Set this round\'s victory target to a random anomaly value when acquired.',
+    type: ItemType.CONSUMABLE,
+    effects: [
+      {
+        type: 'SET_TEMP_TARGET_SCORE',
+        amount: TARGET_OVERRIDE_VALUES[0],
       },
     ],
   },

@@ -1,5 +1,11 @@
 import { MAX_INVENTORY_SLOTS, STARTING_HP, TARGET_SCORE } from '../../constants';
-import { Enemy, GamePhase, GameSnapshot, GameState, MetaState, RuntimeFlags } from '../../types';
+import { Enemy, GamePhase, GameSnapshot, GameState, MetaState, RoundModifierState, RuntimeFlags } from '../../types';
+
+export const createDefaultRoundModifiers = (): RoundModifierState => ({
+    damageAdjustments: { PLAYER: 0, ENEMY: 0 },
+    damageImmunity: { PLAYER: false, ENEMY: false },
+    targetScoreOverride: null,
+});
 
 export const createInitialGameState = (metaState: MetaState): GameState => ({
     phase: GamePhase.MENU,
@@ -7,6 +13,7 @@ export const createInitialGameState = (metaState: MetaState): GameState => ({
     playerStood: false,
     enemyStood: false,
     targetScore: TARGET_SCORE,
+    baseTargetScore: TARGET_SCORE,
     roundCount: 0,
     runLevel: 1,
     activeEnvironment: [],
@@ -23,6 +30,7 @@ export const createInitialGameState = (metaState: MetaState): GameState => ({
     enemy: null,
     deck: [],
     discardPile: [],
+    roundModifiers: createDefaultRoundModifiers(),
     message: 'Welcome to Last Hand',
     rewardOptions: [],
     pickedRewardIndices: [],
@@ -48,6 +56,11 @@ export const createSnapshot = (
 
 export const cloneGameState = (state: GameState): GameState => ({
     ...state,
+    roundModifiers: {
+        damageAdjustments: { ...state.roundModifiers.damageAdjustments },
+        damageImmunity: { ...state.roundModifiers.damageImmunity },
+        targetScoreOverride: state.roundModifiers.targetScoreOverride,
+    },
     activeEnvironment: [...state.activeEnvironment],
     player: {
         ...state.player,

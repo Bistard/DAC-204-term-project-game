@@ -11,6 +11,7 @@ import { EventBus } from '../eventBus';
 import { GameStore } from '../state/gameStore';
 import { GamePhase, Item, LogicEffectConfig, MetaState, StoreUpdateMeta } from '../../types';
 import { getRandomEnemy, getRandomEnvironment, getRandomItems, createDeck, applyEnvironmentRules } from '../utils';
+import { createDefaultRoundModifiers } from '../state/gameState';
 import { MetaUpdater } from '../../types';
 
 interface RewardServiceDeps {
@@ -94,6 +95,7 @@ export class RewardService {
                     runLevel: nextLevel,
                     roundCount: 1,
                     targetScore: TARGET_SCORE,
+                    baseTargetScore: TARGET_SCORE,
                     phase: GamePhase.BATTLE,
                     player: {
                         ...prev.player,
@@ -113,6 +115,7 @@ export class RewardService {
                     goldEarnedThisLevel: 0,
                     rewardOptions: [],
                     pickedRewardIndices: [],
+                    roundModifiers: createDefaultRoundModifiers(),
                 }),
             this.meta('next-level', 'Prepare next level', { level: nextLevel })
         );

@@ -1,6 +1,6 @@
 
 import { Card, Suit, Item, Enemy, EnvironmentCard, ItemDefinition, EnemyTemplate, GameState } from '../types';
-import { ITEM_DEFINITIONS } from '../content/items';
+import { ITEM_DEFINITIONS, PRECISION_PULL_VALUES, TARGET_OVERRIDE_VALUES } from '../content/items';
 import { ENEMY_TEMPLATES } from '../content/enemies';
 import { ENVIRONMENT_CARDS } from '../content/environments';
 import { ACE_VALUE, ACE_ADJUSTMENT, HP_SCALING_PER_LEVEL, MAX_INVENTORY_SLOTS, TARGET_SCORE } from '../constants';
@@ -51,10 +51,50 @@ export const createDeck = (): Card[] => {
   return deck;
 };
 
-const instantiateItem = (definition: ItemDefinition): Item => ({
-    ...definition,
-    instanceId: `${definition.id}-${Math.random().toString(36).substring(2, 8)}`,
-});
+type ItemInstanceOverrides = Pick<ItemDefinition, 'name' | 'description' | 'effects'>;
+
+const pickRandomValue = <T>(collection: readonly T[]): T => {
+    return collection[Math.floor(Math.random() * collection.length)];
+};
+
+const dynamicItemOverrides: Record<string, () => ItemInstanceOverrides> = {
+    precision_pull: () => {
+        const choice = pickRandomValue(PRECISION_PULL_VALUES);
+        return {
+            name: `Precision Pull (${choice.label})`,
+            description: `Attempt to draw a ${choice.label}.`,
+            effects: [
+                {
+                    type: 'DRAW_VALUE',
+                    metadata: { targetValue: choice.value },
+                },
+            ],
+        };
+    },
+    target_override: () => {
+        const value = pickRandomValue(TARGET_OVERRIDE_VALUES);
+        return {
+            name: `Target Override ${value}`,
+            description: `This round only, set the victory target to ${value}.`,
+            effects: [
+                {
+                    type: 'SET_TEMP_TARGET_SCORE',
+                    amount: value,
+                },
+            ],
+        };
+    },
+};
+
+const instantiateItem = (definition: ItemDefinition): Item => {
+    const overridesFactory = dynamicItemOverrides[definition.id];
+    const overrides = overridesFactory ? overridesFactory() : null;
+    return {
+        ...definition,
+        ...(overrides ?? {}),
+        instanceId: `${definition.id}-${Math.random().toString(36).substring(2, 8)}`,
+    };
+};
 
 const ITEM_DEFINITION_MAP = new Map(ITEM_DEFINITIONS.map(def => [def.id, def]));
 
@@ -114,7 +154,7 @@ export const getRandomEnemy = (level: number): Enemy => {
  * CombatService and RewardService can stay in sync.
  */
 export const applyEnvironmentRules = (state: GameState): GameState => {
-    let targetScore = state.targetScore ?? TARGET_SCORE;
+    let targetScore = state.baseTargetScore ?? state.targetScore ?? TARGET_SCORE;
     if (state.activeEnvironment.length > 0) {
         state.activeEnvironment.forEach(card => {
             card.effects.forEach(effect => {
@@ -126,6 +166,7 @@ export const applyEnvironmentRules = (state: GameState): GameState => {
     }
     return {
         ...state,
+        baseTargetScore: targetScore,
         targetScore,
     };
 };

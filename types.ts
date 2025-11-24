@@ -27,6 +27,18 @@ export type LogicEffectType =
     | 'HEAL'
     | 'SHIELD'
     | 'DRAW'
+    | 'RESOLUTION_DAMAGE_BUFFER'
+    | 'RESOLUTION_DAMAGE_BOOST'
+    | 'RESOLUTION_DAMAGE_IMMUNITY'
+    | 'DRAW_OPTIMAL'
+    | 'DRAW_VALUE'
+    | 'SWAP_LAST_CARD'
+    | 'UNDO_LAST_DRAW'
+    | 'REPLACE_LAST_CARD'
+    | 'FORCE_DRAW'
+    | 'GAIN_RANDOM_ITEMS'
+    | 'SELF_DAMAGE'
+    | 'SET_TEMP_TARGET_SCORE'
     | 'DAMAGE_MULTIPLIER'
     | 'FORCE_REVEAL'
     | 'SET_TARGET_SCORE'
@@ -102,12 +114,19 @@ export enum GamePhase {
 
 export type TurnOwner = 'PLAYER' | 'ENEMY';
 
+export interface RoundModifierState {
+    damageAdjustments: Record<TurnOwner, number>;
+    damageImmunity: Record<TurnOwner, boolean>;
+    targetScoreOverride: number | null;
+}
+
 export interface GameState {
     phase: GamePhase;
     turnOwner: TurnOwner;
     playerStood: boolean;
     enemyStood: boolean;
     targetScore: number;
+    baseTargetScore: number;
     roundCount: number;
     runLevel: number;
     activeEnvironment: EnvironmentCard[];
@@ -119,6 +138,7 @@ export interface GameState {
     enemy: Enemy | null;
     deck: Card[];
     discardPile: Card[];
+    roundModifiers: RoundModifierState;
     message: string;
     rewardOptions: Item[];
     pickedRewardIndices: number[];
