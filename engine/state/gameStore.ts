@@ -167,7 +167,9 @@ export class GameStore {
     subscribe(listener: StoreListener) {
         this.listeners.add(listener);
         listener(this.snapshot);
-        return () => this.listeners.delete(listener);
+        return () => {
+            this.listeners.delete(listener);
+        };
     }
 
     private applyFrame(frame: ReplayFrame) {
@@ -200,4 +202,3 @@ export class GameStore {
         this.listeners.forEach(listener => listener(snapshot));
     }
 }
-

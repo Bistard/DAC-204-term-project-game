@@ -47,7 +47,7 @@ interface CombatServiceDeps {
 export class CombatService {
     private store: GameStore;
     private eventBus: EventBus;
-    private aiTimer: number | NodeJS.Timeout | null = null;
+    private aiTimer: ReturnType<typeof setTimeout> | null = null;
 
     constructor(private deps: CombatServiceDeps) {
         this.store = deps.store;
