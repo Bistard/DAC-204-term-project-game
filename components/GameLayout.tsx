@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { GamePhase, Card, Suit, Item } from '../common/types';
 import { CardComponent } from './CardComponent';
@@ -167,6 +166,9 @@ export const GameLayout: React.FC = () => {
     // Dynamic margin for inventory items to prevent overflow with 10 items
     const playerInvOverlap = gameState.player.inventory.length > 5 ? '-100px' : '-80px';
     const enemyInvOverlap = gameState.enemy && gameState.enemy.inventory.length > 5 ? '-100px' : '-80px';
+    
+    // Standard size for all sidebar widgets to ensure consistency
+    const widgetClass = "relative w-24 h-28 sm:w-26 sm:h-32 bg-[#271c19]/90 border-2 border-[#5d4037] rounded pixel-corners flex flex-col items-center justify-center shadow-lg transition-transform hover:scale-105";
 
     // --- PHASE: MAIN MENU ---
     if (gameState.phase === GamePhase.MENU) {
@@ -541,61 +543,74 @@ export const GameLayout: React.FC = () => {
             {/* --- MAIN GAME UI GRID --- */}
             <div className="flex-1 relative flex flex-col justify-between p-2 sm:p-4 max-w-6xl mx-auto w-full">
                 
-                {/* --- LEFT SIDEBAR: Game Stats --- */}
-                <div className="absolute left-2 sm:left-8 -translate-x-1/2 top-1/2 -translate-y-1/2 flex flex-col gap-6 items-center z-30">
-                    <div className="flex flex-row gap-4 items-center">
-                        <div className="flex flex-col gap-1 items-center">
-                            {/* Target Score Widget */}
-                            <div className="relative w-20 h-28 sm:w-24 sm:h-32 bg-[#3e2723] border-4 border-[#271c19] rounded pixel-corners flex flex-col items-center justify-center shadow-lg">
-                                <span className="text-[14px] text-[#a1887f] uppercase mb-1 relative z-10 tracking-widest western-font">GOAL</span>
-                                <span className="text-5xl font-black text-[#f3e5ab] drop-shadow-[0_2px_0_rgba(0,0,0,0.8)] relative z-10 western-font">{gameState.targetScore}</span>
-                            </div>
-                        </div>
-                        {/* Level Info Widget */}
-                        <div className="flex flex-col gap-1 items-center">
-                            <div className="relative w-24 h-28 sm:w-28 sm:h-32 bg-[#271c19]/90 border-2 border-[#5d4037] rounded pixel-corners flex flex-col justify-between shadow-sm p-2 sm:p-3">
-                                <div className="flex items-center justify-between w-full relative z-10">
-                                    <span className="text-[16px] sm:text-lg text-[#8d6e63] font-bold tracking-wider uppercase">Lvl</span>
-                                    <span className="text-lg sm:text-xl font-bold text-[#f3e5ab] leading-none">{gameState.runLevel}</span>
-                                </div>
-                                <div className="w-full h-px bg-[#5d4037] relative z-10"></div>
-                                <div className="flex items-center justify-between w-full relative z-10">
-                                    <span className="text-[16px] sm:text-lg text-[#8d6e63] font-bold tracking-wider uppercase">Rnd</span>
-                                    <span className="text-lg sm:text-xl font-bold text-[#f3e5ab] leading-none">{gameState.roundCount}</span>
-                                </div>
-                                <div className="w-full h-px bg-[#5d4037] relative z-10"></div>
-                                <div className={`flex items-center justify-between w-full relative z-10 transition-all duration-200 ${goldAnim}`}>
-                                    <Coins className="w-3 h-3 sm:w-4 sm:h-4 text-amber-500" />
-                                    <span className="text-lg sm:text-xl font-bold text-amber-400 leading-none">{metaState.gold}</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    {/* Active Environment Cards Row */}
+                {/* --- LEFT SIDEBAR: EMPTY (Placeholders removed) --- */}
+                <div className="absolute left-2 sm:left-8 -translate-x-1/2 top-1/2 -translate-y-1/2 flex flex-col gap-6 items-center z-30 pointer-events-none">
+                    {/* 2. Environment Cards (Bottom Row) */}
                     {gameState.activeEnvironment.length > 0 && (
-                        <div className="flex items-center justify-center -mt-2 relative h-36 min-w-[120px]">
-                            {gameState.activeEnvironment.slice(0, visibleEnvCount).map((card, index) => (
-                                <EnvironmentCardDisplay key={card.id} card={card} className="transition-all duration-300 ease-out hover:scale-110 hover:-translate-y-4 hover:z-[100] animate-fade-in" style={{ marginLeft: index === 0 ? '0px' : '-45px', zIndex: index * 10 }} />
+                        <div className="flex flex-row items-center relative z-10 mt-4 pl-2">
+                            {gameState.activeEnvironment.slice(0, visibleEnvCount).map((card, idx) => (
+                                <div 
+                                    key={card.id} 
+                                    style={{ 
+                                        marginLeft: idx === 0 ? 0 : '-70px',
+                                        zIndex: 10 + idx 
+                                    }}
+                                    className="animate-fade-in transition-all duration-300 hover:z-50 hover:-translate-y-4 hover:scale-110"
+                                >
+                                    <EnvironmentCardDisplay 
+                                        card={card} 
+                                        className="shadow-xl" 
+                                    />
+                                </div>
                             ))}
                         </div>
                     )}
                 </div>
                 
-                {/* --- RIGHT SIDEBAR: Tools --- */}
-                <div className="absolute right-2 sm:right-8 translate-x-1/2 top-1/2 -translate-y-1/2 flex flex-col gap-6 items-center z-30">
-                    <div className="flex flex-col gap-1 items-center">
-                        <div className="relative w-20 h-28 sm:w-24 sm:h-32 group cursor-pointer" onClick={() => setShowDeckView(true)} title="View Remaining Cards">
-                            <div className="absolute inset-0 w-full h-full bg-[#3e2723] border-4 border-[#271c19] rounded pixel-corners relative shadow-lg transition-transform group-hover:scale-105 group-hover:-translate-y-1 group-active:scale-95 flex items-center justify-center">
-                                <Search className="text-[#a1887f] w-8 h-8 drop-shadow-md group-hover:text-[#f3e5ab] transition-colors" />
+                {/* --- RIGHT SIDEBAR: Tools & Stats Reorganized --- */}
+                <div className="absolute right-2 sm:right-8 translate-x-1/2 top-1/2 -translate-y-1/2 flex flex-col gap-4 items-center z-30">
+                    {/* Row 1: Stats */}
+                    <div className="flex gap-4">
+                        {/* Target Score Widget */}
+                        <div className={widgetClass} style={{backgroundColor: '#3e2723'}}>
+                            <span className="text-[12px] text-[#a1887f] uppercase mb-1 relative z-10 tracking-widest western-font">GOAL</span>
+                            <span className="text-4xl sm:text-5xl font-black text-[#f3e5ab] drop-shadow-[0_2px_0_rgba(0,0,0,0.8)] relative z-10 western-font">{gameState.targetScore}</span>
+                        </div>
+                        
+                        {/* Level Info Widget */}
+                        <div className={`${widgetClass} p-1`}>
+                            <div className="flex items-center justify-between w-full relative z-10 px-2">
+                                <span className="text-[16px] text-[#8d6e63] font-bold tracking-wider uppercase">Level</span>
+                                <span className="text-lg font-bold text-[#f3e5ab] leading-none">{gameState.runLevel}</span>
                             </div>
-                            <div className="absolute -top-2 -right-2 bg-emerald-700 text-white text-xl font-bold w-8 h-8 flex items-center justify-center rounded-full border-2 border-emerald-900 z-50 shadow-md">{gameState.deck.length}</div>
+                            <div className="w-full h-px bg-[#5d4037] relative z-10 my-1"></div>
+                            <div className="flex items-center justify-between w-full relative z-10 px-2">
+                                <span className="text-[16px] text-[#8d6e63] font-bold tracking-wider uppercase">Round</span>
+                                <span className="text-lg font-bold text-[#f3e5ab] leading-none">{gameState.roundCount}</span>
+                            </div>
+                            <div className="w-full h-px bg-[#5d4037] relative z-10 my-1"></div>
+                            <div className={`flex items-center justify-between w-full relative z-10 px-2 transition-all duration-200 ${goldAnim}`}>
+                                <Coins className="w-4 h-4 text-amber-500" />
+                                <span className="text-lg font-bold text-amber-400 leading-none">{metaState.gold}</span>
+                            </div>
                         </div>
                     </div>
-                    <div className="flex flex-col gap-1 items-center">
-                        <div className="relative w-20 h-28 sm:w-24 sm:h-32 group cursor-pointer" onClick={() => setShowItemCompendium(true)} title="Item Compendium">
-                            <div className="absolute inset-0 w-full h-full bg-[#3e2723] border-4 border-[#271c19] rounded pixel-corners relative shadow-lg transition-transform group-hover:scale-105 group-hover:-translate-y-1 group-active:scale-95 flex items-center justify-center">
-                                <Book className="text-[#a1887f] w-8 h-8 drop-shadow-md group-hover:text-[#f3e5ab] transition-colors" />
-                            </div>
+
+                    {/* Row 2: Tools */}
+                    <div className="flex gap-4">
+                        {/* Deck Tracker */}
+                        <div className="relative w-24 h-28 sm:w-26 sm:h-32 group cursor-pointer transition-transform hover:scale-105" onClick={() => setShowDeckView(true)} title="View Remaining Cards">
+                             <div className="w-full h-full bg-[#271c19]/90 border-2 border-[#5d4037] rounded pixel-corners flex flex-col items-center justify-center shadow-lg">
+                                <Search className="text-[#a1887f] w-8 h-8 drop-shadow-md group-hover:text-[#f3e5ab] transition-colors mb-1" />
+                                <span className="text-[16px] text-[#8d6e63] uppercase font-bold">DECK</span>
+                             </div>
+                             <div className="absolute -top-2 -right-2 bg-emerald-700 text-white text-[16px] font-bold w-6 h-6 flex items-center justify-center rounded-full border-2 border-emerald-900 z-50 shadow-md pointer-events-none">{gameState.deck.length}</div>
+                        </div>
+
+                        {/* Item Compendium */}
+                        <div className={`${widgetClass} group cursor-pointer`} onClick={() => setShowItemCompendium(true)} title="Item Compendium">
+                            <Book className="text-[#a1887f] w-8 h-8 drop-shadow-md group-hover:text-[#f3e5ab] transition-colors mb-1" />
+                            <span className="text-[16px] text-[#8d6e63] uppercase font-bold">LOG</span>
                         </div>
                     </div>
                 </div>
