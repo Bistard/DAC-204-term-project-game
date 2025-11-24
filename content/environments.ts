@@ -1,4 +1,4 @@
-import { EnvironmentCard } from '../types';
+import { EnvironmentCard } from '../common/types';
 
 export const ENVIRONMENT_CARDS: EnvironmentCard[] = [
   {

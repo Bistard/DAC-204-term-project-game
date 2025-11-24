@@ -5,14 +5,14 @@ import {
     REWARD_POOL_SIZE,
     STARTING_HP,
     TARGET_SCORE,
-} from '../../constants';
+} from '../../common/constants';
 import { EVENT_EFFECTS, GameEventTrigger } from '../../content/events';
 import { EventBus } from '../eventBus';
 import { GameStore } from '../state/gameStore';
-import { GamePhase, Item, LogicEffectConfig, MetaState, StoreUpdateMeta } from '../../types';
+import { GamePhase, Item, LogicEffectConfig, MetaState, StoreUpdateMeta } from '../../common/types';
 import { getRandomEnemy, getRandomEnvironment, getRandomItems, createDeck, applyEnvironmentRules } from '../utils';
 import { createDefaultRoundModifiers } from '../state/gameState';
-import { MetaUpdater } from '../../types';
+import { MetaUpdater } from '../../common/types';
 
 interface RewardServiceDeps {
     store: GameStore;

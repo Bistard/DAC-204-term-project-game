@@ -8,7 +8,7 @@ import {
     DELAY_XL,
     INIT_ITEM_CARD,
     STARTING_HP,
-} from '../../constants';
+} from '../../common/constants';
 import { EventBus } from '../eventBus';
 import { GameStore } from '../state/gameStore';
 import { createDefaultRoundModifiers, createInitialGameState } from '../state/gameState';
@@ -21,7 +21,7 @@ import {
     MetaState,
     StoreUpdateMeta,
     TurnOwner,
-} from '../../types';
+} from '../../common/types';
 import {
     applyEnvironmentRules,
     calculateScore,

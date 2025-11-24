@@ -1,4 +1,4 @@
-import { ItemDefinition, ItemType, Item } from '../types';
+import { ItemDefinition, ItemType, Item } from '../common/types';
 
 export const PRECISION_PULL_VALUES = [
   { label: '1', value: 1 },

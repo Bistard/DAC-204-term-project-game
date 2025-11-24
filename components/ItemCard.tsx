@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Item } from '../types';
+import { Item } from '../common/types';
 import { Box, Lock } from 'lucide-react';
 
 interface ItemCardProps {

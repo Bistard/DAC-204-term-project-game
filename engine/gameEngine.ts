@@ -15,8 +15,8 @@ import {
     ReplayOptions,
     StoreUpdateMeta,
     TurnOwner,
-} from '../types';
-import { MetaUpdater } from '../types';
+} from '../common/types';
+import { MetaUpdater } from '../common/types';
 
 interface GameEngineDeps {
     eventBus: EventBus;

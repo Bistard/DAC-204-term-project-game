@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Globe } from 'lucide-react';
-import { EnvironmentCard } from '../types';
+import { EnvironmentCard } from '../common/types';
 
 interface Props {
   card: EnvironmentCard;

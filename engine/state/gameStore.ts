@@ -8,7 +8,7 @@ import {
     ReplayOptions,
     RuntimeFlags,
     StoreUpdateMeta,
-} from '../../types';
+} from '../../common/types';
 import { cloneGameState, createSnapshot, defaultRuntimeFlags } from './gameState';
 import { ActionLogger, RecordingBuffer, TimelineTracker, cloneSnapshot } from './storeEnhancers';
 import { sleep } from '../utils';

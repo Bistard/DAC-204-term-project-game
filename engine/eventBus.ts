@@ -1,4 +1,4 @@
-import { GameEvent, GameEventListener } from '../types';
+import { GameEvent, GameEventListener } from '../common/types';
 
 export class EventBus {
     private listeners: Set<GameEventListener> = new Set();

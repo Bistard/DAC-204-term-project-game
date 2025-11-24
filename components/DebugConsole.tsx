@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ReplayFrame } from '../types';
+import { ReplayFrame } from '../common/types';
 import { useGame } from '../context/GameContext';
 
 const HOTKEY_LABEL = 'Ctrl + Shift + D';

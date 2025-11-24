@@ -1,6 +1,6 @@
 import { EventBus } from '../eventBus';
 import { GameStore } from '../state/gameStore';
-import { Card, Item, LogicEffectConfig, LogicEffectType, TurnOwner } from '../../types';
+import { Card, Item, LogicEffectConfig, LogicEffectType, TurnOwner } from '../../common/types';
 import { calculateScore, getRandomItems, sleep } from '../utils';
 import { RoundService, CreateMetaFn } from './roundService';
 

@@ -1,4 +1,4 @@
-import { DELAY_XL } from '../../constants';
+import { DELAY_XL } from '../../common/constants';
 import { GameStore } from '../state/gameStore';
 import { calculateScore } from '../utils';
 import { CreateMetaFn } from './roundService';

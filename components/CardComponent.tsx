@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Card, Suit } from '../types';
+import { Card, Suit } from '../common/types';
 
 interface CardProps {
   card: Card;

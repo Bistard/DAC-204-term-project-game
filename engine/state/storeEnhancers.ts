@@ -4,7 +4,7 @@ import {
     RecordingOptions,
     ReplayFrame,
     StoreUpdateMeta,
-} from '../../types';
+} from '../../common/types';
 import { cloneGameState } from './gameState';
 
 const createId = () => `${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;

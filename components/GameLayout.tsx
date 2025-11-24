@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { GamePhase, Card, Suit, Item } from '../types';
+import { GamePhase, Card, Suit, Item } from '../common/types';
 import { CardComponent } from './CardComponent';
 import { Button } from './Button';
 import { HealthBar } from './HealthBar';
@@ -12,7 +12,7 @@ import { Trophy, Skull, Zap, Gift, Play, RotateCcw, Heart, ArrowRight, EyeOff, C
 import { ITEMS } from '../content/items';
 import { ENEMIES } from '../content/enemies';
 import { ENVIRONMENT_CARDS } from '../content/environments';
-import { VISUAL_WARN_OFFSET, VISUAL_SAFE_OFFSET, VISUAL_EARLY_OFFSET, COST_UPGRADE_HP, COST_UPGRADE_INVENTORY, MAX_UPGRADE_HP, MAX_UPGRADE_INVENTORY, REWARD_PICK_LIMIT } from '../constants';
+import { VISUAL_WARN_OFFSET, VISUAL_SAFE_OFFSET, VISUAL_EARLY_OFFSET, COST_UPGRADE_HP, COST_UPGRADE_INVENTORY, MAX_UPGRADE_HP, MAX_UPGRADE_INVENTORY, REWARD_PICK_LIMIT } from '../common/constants';
 
 // --- Helper Styles ---
 

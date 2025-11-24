@@ -1,5 +1,5 @@
-import { GOLD_REWARD_BASE, GOLD_REWARD_PERFECT } from '../constants';
-import { LogicEffectConfig } from '../types';
+import { GOLD_REWARD_BASE, GOLD_REWARD_PERFECT } from '../common/constants';
+import { LogicEffectConfig } from '../common/types';
 
 export type GameEventTrigger = 'ENEMY_DEFEATED' | 'PERFECT_SCORE';
 

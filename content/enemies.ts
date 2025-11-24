@@ -1,5 +1,5 @@
-import { EnemyTemplate } from '../types';
-import { MAX_INVENTORY_SLOTS } from '../constants';
+import { EnemyTemplate } from '../common/types';
+import { MAX_INVENTORY_SLOTS } from '../common/constants';
 
 export const ENEMY_TEMPLATES: EnemyTemplate[] = [
   {

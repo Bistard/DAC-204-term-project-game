@@ -1,9 +1,9 @@
 
-import { Card, Suit, Item, Enemy, EnvironmentCard, ItemDefinition, EnemyTemplate, GameState } from '../types';
+import { Card, Suit, Item, Enemy, EnvironmentCard, ItemDefinition, EnemyTemplate, GameState } from '../common/types';
 import { ITEM_DEFINITIONS, PRECISION_PULL_VALUES, TARGET_OVERRIDE_VALUES } from '../content/items';
 import { ENEMY_TEMPLATES } from '../content/enemies';
 import { ENVIRONMENT_CARDS } from '../content/environments';
-import { ACE_VALUE, ACE_ADJUSTMENT, HP_SCALING_PER_LEVEL, MAX_INVENTORY_SLOTS, TARGET_SCORE } from '../constants';
+import { ACE_VALUE, ACE_ADJUSTMENT, HP_SCALING_PER_LEVEL, MAX_INVENTORY_SLOTS, TARGET_SCORE } from '../common/constants';
 
 export const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 

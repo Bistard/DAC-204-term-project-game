@@ -7,7 +7,7 @@ import React, {
     useRef,
     useState,
 } from 'react';
-import { DELAY_SHORT } from '../constants';
+import { DELAY_SHORT } from '../common/constants';
 import { EventBus } from '../engine/eventBus';
 import { GameEngine } from '../engine/gameEngine';
 import {
@@ -24,7 +24,7 @@ import {
     ReplayFrame,
     ReplayOptions,
     TurnOwner,
-} from '../types';
+} from '../common/types';
 
 interface GameContextType {
     gameState: GameState;

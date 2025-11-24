@@ -1,5 +1,5 @@
-import { MAX_INVENTORY_SLOTS, STARTING_HP, TARGET_SCORE } from '../../constants';
-import { Enemy, GamePhase, GameSnapshot, GameState, MetaState, RoundModifierState, RuntimeFlags } from '../../types';
+import { MAX_INVENTORY_SLOTS, STARTING_HP, TARGET_SCORE } from '../../common/constants';
+import { Enemy, GamePhase, GameSnapshot, GameState, MetaState, RoundModifierState, RuntimeFlags } from '../../common/types';
 
 export const createDefaultRoundModifiers = (): RoundModifierState => ({
     damageAdjustments: { PLAYER: 0, ENEMY: 0 },
