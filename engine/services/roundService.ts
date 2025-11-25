@@ -286,7 +286,7 @@ export class RoundService {
                     ...prev,
                     player: { ...prev.player, hand: playerHand, score: playerScore },
                     enemy: prev.enemy ? { ...prev.enemy, hand: enemyHand, score: enemyScore } : null,
-                    message: 'Loading Modules...',
+                    message: 'Dealing Items...',
                 };
             },
             this.deps.createMeta('round.reveal', 'Reveal opening hands')

@@ -15,26 +15,35 @@ export const EnvironmentCardDisplay: React.FC<Props> = ({ card, className = '', 
         className={`group relative cursor-help ${className}`}
         style={style}
     >
-        {/* Card Body - Wanted Poster Theme */}
-        <div className="w-20 h-28 sm:w-24 sm:h-32 bg-[#e3dac9] border-4 border-[#3e2723] rounded-sm pixel-corners flex flex-col items-center justify-between p-1 shadow-[0_4px_8px_rgba(0,0,0,0.6)] group-hover:shadow-[0_8px_16px_rgba(0,0,0,0.7)] group-hover:scale-105 transition-transform overflow-hidden">
+        {/* Card Body - Nailed Note on Wood */}
+        <div className="w-24 h-32 sm:w-28 sm:h-36 relative transition-transform group-hover:scale-105 group-hover:-translate-y-1 duration-300">
             
-            {/* Top "WANTED" or Title Section */}
-            <div className="w-full border-b-2 border-[#3e2723] pb-1 mb-1">
-                 <p className="text-[10px] sm:text-[10px] text-center font-bold text-[#3e2723] western-font uppercase tracking-widest leading-none">
-                     WARNING
-                 </p>
-            </div>
+            {/* Wood Backing */}
+            <div className="absolute inset-0 bg-[#3e2723] border-r-2 border-b-2 border-black/50 rounded-sm pixel-corners shadow-lg transform rotate-1"></div>
 
-            {/* Icon Section */}
-            <div className="flex-1 flex items-center justify-center relative z-10 w-full bg-[#d7ccc8] border-2 border-[#5d4037]">
-                <Globe className="w-8 h-8 text-[#3e2723] opacity-80" />
-            </div>
+            {/* Paper Note */}
+            <div className="absolute inset-1 bg-[#fff8dc] border border-[#d7ccc8] flex flex-col items-center shadow-sm pixel-corners transform -rotate-1 origin-top">
+                
+                {/* Nail */}
+                <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-3 h-3 rounded-full bg-[#1a1a1a] border border-[#4a4a4a] shadow-sm z-20"></div>
 
-            {/* Name Footer */}
-            <div className="w-full pt-1 flex items-center justify-center min-h-[1.5rem]">
-                <p className="text-[10px] sm:text-xs text-center leading-tight text-[#3e2723] font-bold uppercase line-clamp-2 western-font">
-                    {card.name}
-                </p>
+                {/* Header */}
+                <div className="w-full mt-3 border-b-2 border-black/80 pb-0.5 mb-1 px-1">
+                     <p className="text-[10px] text-center font-black text-black western-font uppercase tracking-widest leading-none">
+                         NOTICE
+                     </p>
+                </div>
+
+                {/* Icon Section */}
+                <div className="flex-1 flex flex-col items-center justify-center w-full bg-transparent p-1 relative">
+                    <div className="absolute inset-2 border border-black/10"></div>
+                    <Globe className="w-8 h-8 text-[#3e2723] opacity-80 mb-1" />
+                    
+                    {/* Name */}
+                    <p className="text-[9px] sm:text-[10px] text-center leading-tight text-[#3e2723] font-serif font-bold uppercase line-clamp-3 px-1">
+                        {card.name}
+                    </p>
+                </div>
             </div>
         </div>
 
