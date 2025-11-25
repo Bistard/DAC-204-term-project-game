@@ -98,7 +98,11 @@ export class RoundService {
         this.setDealing(true);
         this.clearRoundModifiers('round.start', true);
 
-        if (snapshot.state.roundCount === 1) {
+        // wait for intro animation complete
+        await sleep(DELAY_STANDARD);
+        
+        const isIntroRound = snapshot.state.roundCount === 1;
+        if (isIntroRound) {
             if (snapshot.state.activePenalty) {
                 await this.playPenaltySequence();
             }
