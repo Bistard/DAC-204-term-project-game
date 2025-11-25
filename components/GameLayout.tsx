@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { GamePhase, Card, Suit, Item } from '../common/types';
 import { CardComponent } from './CardComponent';
@@ -5,6 +6,7 @@ import { Button } from './Button';
 import { HealthBar } from './HealthBar';
 import { ItemCard } from './ItemCard';
 import { EnvironmentCardDisplay } from './EnvironmentCardDisplay';
+import { PenaltyCardDisplay } from './penaltyCardDisplay';
 import { PlayerHand } from './PlayerHand';
 import { useGame } from '../context/GameContext';
 import { Trophy, Skull, Zap, Gift, Play, RotateCcw, Heart, ArrowRight, EyeOff, CheckCircle, Layers, Search, X, Swords, Book, Globe, Coins, Briefcase } from 'lucide-react';
@@ -118,7 +120,7 @@ export const GameLayout: React.FC = () => {
     const { 
         gameState, rewardOptions, pickedIndices, visualEffect, damageNumbers,
         isDealing, handAction, enemyHandAction, scoreAnimating, activeItemEffect, activeItemIndex,
-        animatingEnvCard, clashState, visibleEnvCount, metaState, goldEarnedThisLevel,
+        animatingEnvCard, animatingPenaltyCard, clashState, visibleEnvCount, penaltyRevealed, metaState, goldEarnedThisLevel, lastPenaltyEvent,
         startRun, hit, stand, useItem, nextLevel, pickReward, setGameState, buyUpgrade, proceedToRewards
     } = useGame();
 
@@ -443,6 +445,18 @@ export const GameLayout: React.FC = () => {
                 </div>
             )}
 
+            {/* --- PENALTY CARD ANIMATION --- */}
+            {animatingPenaltyCard && (
+                <>
+                    <div className="fixed inset-0 z-[240] bg-black/40 backdrop-blur-sm animate-fade-in pointer-events-none transition-all duration-500"></div>
+                    <div className="fixed inset-0 z-[250] pointer-events-none flex items-center justify-center">
+                        <div className={`${animatingPenaltyCard.state === 'entering' ? 'animate-env-enter' : ''} ${animatingPenaltyCard.state === 'holding' ? 'animate-env-pulse scale-[1.5]' : ''} ${animatingPenaltyCard.state === 'exiting' ? 'animate-env-exit' : ''}`}>
+                            <PenaltyCardDisplay card={animatingPenaltyCard.card} className="scale-125 shadow-2xl" />
+                        </div>
+                    </div>
+                </>
+            )}
+
             {/* --- ENVIRONMENT CARD ANIMATION --- */}
             {animatingEnvCard && (
                 <>
@@ -543,38 +557,42 @@ export const GameLayout: React.FC = () => {
             {/* --- MAIN GAME UI GRID --- */}
             <div className="flex-1 relative flex flex-col justify-between p-2 sm:p-4 max-w-6xl mx-auto w-full">
                 
-                {/* --- LEFT SIDEBAR: EMPTY (Placeholders removed) --- */}
-                <div className="absolute left-2 sm:left-8 -translate-x-1/2 top-1/2 -translate-y-1/2 flex flex-col gap-6 items-center z-30 pointer-events-none">
+                {/* --- LEFT SIDEBAR: PENALTY & ENVIRONMENT CARDS --- */}
+                <div className="absolute left-2 sm:left-8 top-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col gap-8 items-center z-40">
+                    {/* 1. Penalty Card (Top Row) */}
+                    {gameState.activePenalty && penaltyRevealed && (
+                        <div className="animate-fade-in relative z-20">
+                            <PenaltyCardDisplay 
+                                card={gameState.activePenalty} 
+                                runtime={gameState.penaltyRuntime}
+                                isAnimating={lastPenaltyEvent?.state === 'APPLIED'}
+                                className="shadow-2xl"
+                            />
+                        </div>
+                    )}
                     {/* 2. Environment Cards (Bottom Row) */}
                     {gameState.activeEnvironment.length > 0 && (
-                        <div className="flex flex-row items-center relative z-10 mt-4 pl-2">
+                        <div className="flex flex-row relative z-10 hover:z-50">
                             {gameState.activeEnvironment.slice(0, visibleEnvCount).map((card, idx) => (
-                                <div 
+                                <EnvironmentCardDisplay 
                                     key={card.id} 
-                                    style={{ 
-                                        marginLeft: idx === 0 ? 0 : '-70px',
-                                        zIndex: 10 + idx 
-                                    }}
-                                    className="animate-fade-in transition-all duration-300 hover:z-50 hover:-translate-y-4 hover:scale-110"
-                                >
-                                    <EnvironmentCardDisplay 
-                                        card={card} 
-                                        className="shadow-xl" 
-                                    />
-                                </div>
+                                    card={card} 
+                                    style={{ marginLeft: idx === 0 ? 0 : '-60px' }}
+                                    className="animate-fade-in shadow-xl hover:z-30 transition-all duration-300 hover:-translate-y-4" 
+                                />
                             ))}
                         </div>
                     )}
                 </div>
                 
-                {/* --- RIGHT SIDEBAR: Tools & Stats Reorganized --- */}
+                {/* --- RIGHT SIDEBAR: Tools & Stats --- */}
                 <div className="absolute right-2 sm:right-8 translate-x-1/2 top-1/2 -translate-y-1/2 flex flex-col gap-4 items-center z-30">
                     {/* Row 1: Stats */}
                     <div className="flex gap-4">
                         {/* Target Score Widget */}
                         <div className={widgetClass} style={{backgroundColor: '#3e2723'}}>
                             <span className="text-[12px] text-[#a1887f] uppercase mb-1 relative z-10 tracking-widest western-font">GOAL</span>
-                            <span className="text-4xl sm:text-5xl font-black text-[#f3e5ab] drop-shadow-[0_2px_0_rgba(0,0,0,0.8)] relative z-10 western-font">{gameState.targetScore}</span>
+                            <span className="text-[20px] sm:text-5xl font-black text-[#f3e5ab] drop-shadow-[0_2px_0_rgba(0,0,0,0.8)] relative z-10 western-font">{gameState.targetScore}</span>
                         </div>
                         
                         {/* Level Info Widget */}
@@ -610,7 +628,7 @@ export const GameLayout: React.FC = () => {
                         {/* Item Compendium */}
                         <div className={`${widgetClass} group cursor-pointer`} onClick={() => setShowItemCompendium(true)} title="Item Compendium">
                             <Book className="text-[#a1887f] w-8 h-8 drop-shadow-md group-hover:text-[#f3e5ab] transition-colors mb-1" />
-                            <span className="text-[16px] text-[#8d6e63] uppercase font-bold">LOG</span>
+                            <span className="text-[16px] text-[#8d6e63] uppercase font-bold">REFERENCE</span>
                         </div>
                     </div>
                 </div>

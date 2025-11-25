@@ -1,3 +1,4 @@
+
 import React, {
     createContext,
     useCallback,
@@ -24,6 +25,7 @@ import {
     ReplayFrame,
     ReplayOptions,
     TurnOwner,
+    PenaltyCard,
 } from '../common/types';
 
 interface GameContextType {
@@ -39,10 +41,13 @@ interface GameContextType {
     activeItemEffect: { item: Item; actor: TurnOwner } | null;
     activeItemIndex: number | null;
     animatingEnvCard: { card: EnvironmentCard; state: 'entering' | 'holding' | 'exiting' } | null;
+    animatingPenaltyCard: { card: PenaltyCard; state: 'entering' | 'holding' | 'exiting' } | null;
     clashState: ClashState;
     visibleEnvCount: number;
+    penaltyRevealed: boolean;
     metaState: MetaState;
     goldEarnedThisLevel: number;
+    lastPenaltyEvent: { card: PenaltyCard; state: 'DRAWN' | 'APPLIED'; detail?: string } | null;
     startRun: () => void;
     hit: (actor: TurnOwner) => Promise<void> | void;
     stand: (actor: TurnOwner) => void;
@@ -105,15 +110,15 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         localStorage.setItem(META_STORAGE_KEY, JSON.stringify(metaState));
     }, [metaState]);
 
-    const busRef = useRef<EventBus>();
+    const busRef = useRef<EventBus | null>(null);
     if (!busRef.current) {
         busRef.current = new EventBus();
     }
 
-    const engineRef = useRef<GameEngine>();
+    const engineRef = useRef<GameEngine | null>(null);
     if (!engineRef.current) {
         engineRef.current = new GameEngine({
-            eventBus: busRef.current,
+            eventBus: busRef.current!,
             getMetaState: () => metaStateRef.current,
             updateMetaState: updater => {
                 setMetaState(prev => {
@@ -121,11 +126,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     metaStateRef.current = next;
                     return next;
                 });
-                return metaStateRef.current;
             },
         });
     }
-    const engine = engineRef.current;
+    const engine = engineRef.current!;
 
     const [snapshot, setSnapshot] = useState(engine.snapshot);
     const [storeDiagnostics, setStoreDiagnostics] = useState(() => ({
@@ -155,9 +159,13 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [activeItemIndex, setActiveItemIndex] = useState<number | null>(null);
     const [animatingEnvCard, setAnimatingEnvCard] =
         useState<{ card: EnvironmentCard; state: 'entering' | 'holding' | 'exiting' } | null>(null);
+    const [animatingPenaltyCard, setAnimatingPenaltyCard] =
+        useState<{ card: PenaltyCard; state: 'entering' | 'holding' | 'exiting' } | null>(null);
     const [visibleEnvCount, setVisibleEnvCount] = useState(0);
+    const [penaltyRevealed, setPenaltyRevealed] = useState(true);
     const [clashState, setClashState] = useState<ClashState>(defaultClashState);
     const [scoreAnimating, setScoreAnimating] = useState(false);
+    const [lastPenaltyEvent, setLastPenaltyEvent] = useState<{ card: PenaltyCard; state: 'DRAWN' | 'APPLIED'; detail?: string } | null>(null);
 
     const pushDamageNumber = useCallback((value: number | string, target: TurnOwner, variant: 'DAMAGE' | 'HEAL' | 'GOLD') => {
         const id = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
@@ -189,7 +197,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const enemyActionTimer = useRef<number | null>(null);
 
     useEffect(() => {
-        const bus = busRef.current;
+        const bus = busRef.current!;
         return bus.subscribe(event => {
             switch (event.type) {
                 case 'hand.action': {
@@ -232,8 +240,28 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     }
                     break;
                 }
+                case 'penalty.animation': {
+                    setAnimatingPenaltyCard(event.payload);
+                    if (event.payload.state === 'entering') {
+                         setPenaltyRevealed(false);
+                    }
+                    if (event.payload.state === 'exiting') {
+                        window.setTimeout(() => {
+                            setPenaltyRevealed(true);
+                            setAnimatingPenaltyCard(null);
+                        }, 200);
+                    }
+                    break;
+                }
                 case 'clash.state': {
                     setClashState(event.payload);
+                    break;
+                }
+                case 'penalty.card': {
+                    setLastPenaltyEvent(event.payload);
+                    if (event.payload.state === 'APPLIED') {
+                        setTimeout(() => setLastPenaltyEvent(null), 1500);
+                    }
                     break;
                 }
                 default:
@@ -301,10 +329,13 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             activeItemEffect,
             activeItemIndex,
             animatingEnvCard,
+            animatingPenaltyCard,
             clashState,
             visibleEnvCount,
+            penaltyRevealed,
             metaState,
             goldEarnedThisLevel: gameState.goldEarnedThisLevel,
+            lastPenaltyEvent,
             startRun,
             hit,
             stand,
@@ -338,9 +369,12 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         activeItemEffect,
         activeItemIndex,
         animatingEnvCard,
+        animatingPenaltyCard,
         clashState,
         visibleEnvCount,
+        penaltyRevealed,
         metaState,
+        lastPenaltyEvent,
         startRun,
         hit,
         stand,

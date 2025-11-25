@@ -59,7 +59,7 @@ export class RoundService {
     startRun() {
         const meta = this.deps.getMetaState();
         const deck = createDeck();
-        const envCards = getRandomEnvironment(0);
+        const envCards = getRandomEnvironment(3);
         const penaltyCard = getRandomPenaltyCard();
         const baseState = createInitialGameState(meta);
         const initialState = applyEnvironmentRules({
@@ -78,7 +78,7 @@ export class RoundService {
             activeEnvironment: envCards,
             activePenalty: penaltyCard,
             penaltyRuntime: createDefaultPenaltyRuntime(),
-            message: `Run started! Penalty: ${penaltyCard.name}`,
+            message: `Run started!`,
         });
         this.deps.store.setState(
             initialState,
@@ -95,8 +95,13 @@ export class RoundService {
         this.setDealing(true);
         this.clearRoundModifiers('round.start', true);
 
-        if (snapshot.state.roundCount === 1 && snapshot.state.activeEnvironment.length > 0) {
-            await this.playEnvironmentSequence();
+        if (snapshot.state.roundCount === 1) {
+            if (snapshot.state.activePenalty) {
+                await this.playPenaltySequence();
+            }
+            if (snapshot.state.activeEnvironment.length > 0) {
+                await this.playEnvironmentSequence();
+            }
         }
 
         const deck = createDeck();
@@ -319,6 +324,27 @@ export class RoundService {
         }
     }
 
+    private async playPenaltySequence() {
+        const card = this.deps.store.snapshot.state.activePenalty;
+        if (!card) return;
+        
+        this.deps.eventBus.emit({
+            type: 'penalty.animation',
+            payload: { card, state: 'entering' },
+        });
+        await sleep(DELAY_MEDIUM);
+        this.deps.eventBus.emit({
+            type: 'penalty.animation',
+            payload: { card, state: 'holding' },
+        });
+        await sleep(DELAY_LONG);
+        this.deps.eventBus.emit({
+            type: 'penalty.animation',
+            payload: { card, state: 'exiting' },
+        });
+        await sleep(DELAY_MEDIUM);
+    }
+
     private async playEnvironmentSequence() {
         const cards = this.deps.store.snapshot.state.activeEnvironment;
         for (const card of cards) {
@@ -326,7 +352,7 @@ export class RoundService {
                 type: 'environment.animation',
                 payload: { card, state: 'entering' },
             });
-            await sleep(600);
+            await sleep(DELAY_MEDIUM);
             this.deps.eventBus.emit({
                 type: 'environment.animation',
                 payload: { card, state: 'holding' },

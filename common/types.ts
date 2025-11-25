@@ -273,6 +273,7 @@ export type GameEvent =
     | { type: 'damage.number'; payload: { value: number | string; target: TurnOwner; variant: 'DAMAGE' | 'HEAL' | 'GOLD' } }
     | { type: 'item.animation'; payload: { actor: TurnOwner; item: Item; index?: number; phase: 'START' | 'END' } }
     | { type: 'environment.animation'; payload: { card: EnvironmentCard; state: 'entering' | 'holding' | 'exiting' } }
+    | { type: 'penalty.animation'; payload: { card: PenaltyCard; state: 'entering' | 'holding' | 'exiting' } }
     | { type: 'penalty.card'; payload: { card: PenaltyCard; state: 'DRAWN' | 'APPLIED'; detail?: string } }
     | { type: 'clash.state'; payload: ClashState };
 

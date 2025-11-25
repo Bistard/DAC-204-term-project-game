@@ -121,7 +121,7 @@ export class RewardService {
                     turnOwner: 'PLAYER',
                     playerStood: false,
                     enemyStood: false,
-                    message: `Level ${nextLevel} Started. Penalty: ${penaltyCard.name}`,
+                    message: `Level ${nextLevel} Started.`,
                     goldEarnedThisLevel: 0,
                     rewardOptions: [],
                     pickedRewardIndices: [],
