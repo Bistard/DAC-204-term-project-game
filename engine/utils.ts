@@ -1,8 +1,19 @@
 
-import { Card, Suit, Item, Enemy, EnvironmentCard, ItemDefinition, EnemyTemplate, GameState } from '../common/types';
+import {
+    Card,
+    Suit,
+    Item,
+    Enemy,
+    EnvironmentCard,
+    ItemDefinition,
+    EnemyTemplate,
+    GameState,
+    PenaltyCard,
+} from '../common/types';
 import { ITEM_DEFINITIONS, PRECISION_PULL_VALUES, TARGET_OVERRIDE_VALUES } from '../content/items';
 import { ENEMY_TEMPLATES } from '../content/enemies';
 import { ENVIRONMENT_CARDS } from '../content/environments';
+import { PENALTY_CARDS } from '../content/penalties';
 import { ACE_VALUE, ACE_ADJUSTMENT, HP_SCALING_PER_LEVEL, MAX_INVENTORY_SLOTS, TARGET_SCORE } from '../common/constants';
 
 export const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
@@ -120,6 +131,10 @@ export const createItemById = (id: string): Item | null => {
 export const getRandomEnvironment = (count: number): EnvironmentCard[] => {
     const shuffled = [...ENVIRONMENT_CARDS].sort(() => 0.5 - Math.random());
     return shuffled.slice(0, count);
+};
+
+export const getRandomPenaltyCard = (): PenaltyCard => {
+    return pickRandomTemplate<PenaltyCard>(PENALTY_CARDS);
 };
 
 export const getRandomEnemy = (level: number): Enemy => {

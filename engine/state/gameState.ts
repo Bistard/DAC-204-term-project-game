@@ -1,11 +1,25 @@
 import { MAX_INVENTORY_SLOTS, STARTING_HP, TARGET_SCORE } from '../../common/constants';
-import { Enemy, GamePhase, GameSnapshot, GameState, MetaState, RoundModifierState, RuntimeFlags } from '../../common/types';
+import {
+    Enemy,
+    GamePhase,
+    GameSnapshot,
+    GameState,
+    MetaState,
+    PenaltyRuntimeState,
+    RoundModifierState,
+    RuntimeFlags,
+} from '../../common/types';
 
 export const createDefaultRoundModifiers = (): RoundModifierState => ({
     damageAdjustments: { PLAYER: 0, ENEMY: 0 },
     damageImmunity: { PLAYER: false, ENEMY: false },
     targetScoreOverride: null,
     loserDamageBonus: 0,
+});
+
+export const createDefaultPenaltyRuntime = (): PenaltyRuntimeState => ({
+    lastWinner: null,
+    consecutiveWins: { PLAYER: 0, ENEMY: 0 },
 });
 
 export const createInitialGameState = (metaState: MetaState): GameState => ({
@@ -18,6 +32,7 @@ export const createInitialGameState = (metaState: MetaState): GameState => ({
     roundCount: 0,
     runLevel: 1,
     activeEnvironment: [],
+    activePenalty: null,
     player: {
         hp: STARTING_HP + metaState.upgrades.hpLevel,
         maxHp: STARTING_HP + metaState.upgrades.hpLevel,
@@ -32,6 +47,7 @@ export const createInitialGameState = (metaState: MetaState): GameState => ({
     deck: [],
     discardPile: [],
     roundModifiers: createDefaultRoundModifiers(),
+    penaltyRuntime: createDefaultPenaltyRuntime(),
     message: 'Welcome to Last Hand',
     rewardOptions: [],
     pickedRewardIndices: [],
@@ -64,6 +80,10 @@ export const cloneGameState = (state: GameState): GameState => ({
         loserDamageBonus: state.roundModifiers.loserDamageBonus,
     },
     activeEnvironment: [...state.activeEnvironment],
+    penaltyRuntime: {
+        lastWinner: state.penaltyRuntime.lastWinner,
+        consecutiveWins: { ...state.penaltyRuntime.consecutiveWins },
+    },
     player: {
         ...state.player,
         hand: state.player.hand.map(card => ({ ...card })),

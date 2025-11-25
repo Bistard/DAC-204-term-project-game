@@ -11,7 +11,7 @@ import {
 } from '../../common/constants';
 import { EventBus } from '../eventBus';
 import { GameStore } from '../state/gameStore';
-import { createDefaultRoundModifiers, createInitialGameState } from '../state/gameState';
+import { createDefaultPenaltyRuntime, createDefaultRoundModifiers, createInitialGameState } from '../state/gameState';
 import {
     Card,
     ClashState,
@@ -19,6 +19,9 @@ import {
     GameState,
     HandAction,
     MetaState,
+    PenaltyCard,
+    PenaltyDamageContext,
+    PenaltyDamageResult,
     StoreUpdateMeta,
     TurnOwner,
 } from '../../common/types';
@@ -28,6 +31,7 @@ import {
     createDeck,
     getRandomEnemy,
     getRandomEnvironment,
+    getRandomPenaltyCard,
     getRandomItems,
     sleep,
 } from '../utils';
@@ -56,26 +60,31 @@ export class RoundService {
         const meta = this.deps.getMetaState();
         const deck = createDeck();
         const envCards = getRandomEnvironment(0);
+        const penaltyCard = getRandomPenaltyCard();
+        const baseState = createInitialGameState(meta);
         const initialState = applyEnvironmentRules({
-            ...createInitialGameState(meta),
+            ...baseState,
             phase: GamePhase.BATTLE,
             runLevel: 1,
             roundCount: 1,
             deck,
             discardPile: [],
             player: {
-                ...createInitialGameState(meta).player,
+                ...baseState.player,
                 hp: STARTING_HP + meta.upgrades.hpLevel,
                 maxHp: STARTING_HP + meta.upgrades.hpLevel,
             },
             enemy: getRandomEnemy(1),
             activeEnvironment: envCards,
-            message: 'Run started!',
+            activePenalty: penaltyCard,
+            penaltyRuntime: createDefaultPenaltyRuntime(),
+            message: `Run started! Penalty: ${penaltyCard.name}`,
         });
         this.deps.store.setState(
             initialState,
             this.deps.createMeta('start-run', 'Initialize new run', { runLevel: initialState.runLevel })
         );
+        this.emitPenaltyEvent(penaltyCard, 'DRAWN', 'Battle penalty selected.');
 
         this.startRound();
     }
@@ -344,27 +353,64 @@ export class RoundService {
 
     private async resolveDamage(result: ClashState['result']) {
         const snapshot = this.deps.store.snapshot;
-        let playerDamage = 0;
-        let enemyDamage = 0;
-        let message = 'Draw.';
-        const playerBust = snapshot.state.player.score > snapshot.state.targetScore;
-        const enemyBust = snapshot.state.enemy ? snapshot.state.enemy.score > snapshot.state.targetScore : false;
+        const playerScore = snapshot.state.player.score;
+        const enemyScore = snapshot.state.enemy?.score ?? 0;
+        const playerBust = playerScore > snapshot.state.targetScore;
+        const enemyBust = snapshot.state.enemy ? enemyScore > snapshot.state.targetScore : false;
 
+        const winner: TurnOwner | 'DRAW' =
+            playerBust && enemyBust
+                ? 'DRAW'
+                : playerBust
+                ? 'ENEMY'
+                : enemyBust
+                ? 'PLAYER'
+                : result === 'player_win'
+                ? 'PLAYER'
+                : result === 'enemy_win'
+                ? 'ENEMY'
+                : 'DRAW';
+
+        const loser: TurnOwner | null =
+            winner === 'PLAYER' ? 'ENEMY' : winner === 'ENEMY' ? 'PLAYER' : null;
+
+        let message = 'Draw.';
         if (playerBust && enemyBust) {
             message = 'Both Busted! Draw.';
         } else if (playerBust) {
-            playerDamage = DAMAGE_BUST_PLAYER;
             message = 'You Busted!';
         } else if (enemyBust) {
-            enemyDamage = DAMAGE_BUST_ENEMY;
             message = 'Enemy Busted!';
-        } else if (result === 'player_win') {
-            enemyDamage = DAMAGE_BUST_ENEMY;
-            message = `You Win (${snapshot.state.player.score} vs ${snapshot.state.enemy?.score ?? 0})`;
-        } else if (result === 'enemy_win') {
-            playerDamage = DAMAGE_BUST_PLAYER;
-            message = `Enemy Wins (${snapshot.state.enemy?.score ?? 0} vs ${snapshot.state.player.score})`;
+        } else if (winner === 'PLAYER') {
+            message = `You Win (${playerScore} vs ${enemyScore})`;
+        } else if (winner === 'ENEMY') {
+            message = `Enemy Wins (${enemyScore} vs ${playerScore})`;
         }
+
+        const penaltyOutcome = this.evaluatePenaltyDamage({
+            winner,
+            loser,
+            playerScore,
+            enemyScore,
+            playerBust,
+            enemyBust,
+            roundNumber: snapshot.state.roundCount,
+        });
+
+        if (penaltyOutcome.runtimePatch) {
+            this.patchPenaltyRuntime(penaltyOutcome.runtimePatch);
+        }
+
+        const penaltyCard = this.deps.store.snapshot.state.activePenalty;
+        if (penaltyCard) {
+            const detail = penaltyOutcome.messageFragment
+                ? `${penaltyCard.name} (${penaltyOutcome.messageFragment})`
+                : penaltyCard.name;
+            this.emitPenaltyEvent(penaltyCard, 'APPLIED', `Penalty: ${detail}`);
+        }
+
+        let playerDamage = penaltyOutcome.playerDamage ?? 0;
+        let enemyDamage = penaltyOutcome.enemyDamage ?? 0;
 
         const loserBonus = snapshot.state.roundModifiers.loserDamageBonus ?? 0;
         if (loserBonus > 0) {
@@ -382,6 +428,13 @@ export class RoundService {
         }
         if (resolvedEnemyDamage > 0) {
             this.applyDamage('ENEMY', resolvedEnemyDamage);
+        }
+
+        if (penaltyOutcome.playerHeal) {
+            this.applyHealing('PLAYER', penaltyOutcome.playerHeal);
+        }
+        if (penaltyOutcome.enemyHeal) {
+            this.applyHealing('ENEMY', penaltyOutcome.enemyHeal);
         }
 
         this.clearRoundModifiers('round.resolved', true);
@@ -437,6 +490,110 @@ export class RoundService {
             );
             this.startRound();
         }
+    }
+
+    private evaluatePenaltyDamage(context: Omit<PenaltyDamageContext, 'runtime'>): PenaltyDamageResult {
+        const state = this.deps.store.snapshot.state;
+        const penalty = state.activePenalty;
+        const payload: PenaltyDamageContext = {
+            ...context,
+            runtime: state.penaltyRuntime,
+        };
+        if (!penalty) {
+            return this.computeLegacyDamage(payload);
+        }
+        try {
+            return penalty.damageFunction(payload);
+        } catch (error) {
+            return this.computeLegacyDamage(payload);
+        }
+    }
+
+    private computeLegacyDamage(context: PenaltyDamageContext): PenaltyDamageResult {
+        if (context.winner === 'DRAW') {
+            return { playerDamage: 0, enemyDamage: 0 };
+        }
+        let playerDamage = 0;
+        let enemyDamage = 0;
+        if (context.playerBust && !context.enemyBust) {
+            playerDamage = DAMAGE_BUST_PLAYER;
+        } else if (context.enemyBust && !context.playerBust) {
+            enemyDamage = DAMAGE_BUST_ENEMY;
+        } else if (context.winner === 'PLAYER') {
+            enemyDamage = DAMAGE_BUST_ENEMY;
+        } else if (context.winner === 'ENEMY') {
+            playerDamage = DAMAGE_BUST_PLAYER;
+        }
+        return { playerDamage, enemyDamage };
+    }
+
+    private patchPenaltyRuntime(patch?: PenaltyDamageResult['runtimePatch']) {
+        if (!patch) return;
+        this.deps.store.updateState(
+            prev => {
+                const current = prev.penaltyRuntime;
+                const next = {
+                    lastWinner: patch.lastWinner ?? current.lastWinner,
+                    consecutiveWins: {
+                        PLAYER: patch.consecutiveWins?.PLAYER ?? current.consecutiveWins.PLAYER,
+                        ENEMY: patch.consecutiveWins?.ENEMY ?? current.consecutiveWins.ENEMY,
+                    },
+                };
+                if (
+                    next.lastWinner === current.lastWinner &&
+                    next.consecutiveWins.PLAYER === current.consecutiveWins.PLAYER &&
+                    next.consecutiveWins.ENEMY === current.consecutiveWins.ENEMY
+                ) {
+                    return prev;
+                }
+                return {
+                    ...prev,
+                    penaltyRuntime: next,
+                };
+            },
+            this.deps.createMeta('penalty.runtime', 'Penalty runtime updated', undefined, {
+                suppressHistory: true,
+                suppressLog: true,
+            })
+        );
+    }
+
+    private applyHealing(target: TurnOwner, amount: number) {
+        const healAmount = Math.floor(amount);
+        if (healAmount <= 0) return;
+        this.deps.store.updateState(
+            prev => {
+                if (target === 'PLAYER') {
+                    const entity = prev.player;
+                    const nextHp = Math.min(entity.maxHp, entity.hp + healAmount);
+                    if (nextHp === entity.hp) return prev;
+                    return {
+                        ...prev,
+                        player: { ...entity, hp: nextHp },
+                    };
+                }
+                if (!prev.enemy) return prev;
+                const enemy = prev.enemy;
+                const nextHp = Math.min(enemy.maxHp, enemy.hp + healAmount);
+                if (nextHp === enemy.hp) return prev;
+                return {
+                    ...prev,
+                    enemy: { ...enemy, hp: nextHp },
+                };
+            },
+            this.deps.createMeta('penalty.heal', 'Penalty heal applied', { target, amount: healAmount })
+        );
+        this.deps.eventBus.emit({
+            type: 'damage.number',
+            payload: { value: healAmount, target, variant: 'HEAL' },
+        });
+    }
+
+    private emitPenaltyEvent(card: PenaltyCard, state: 'DRAWN' | 'APPLIED', detail?: string) {
+        this.deps.eventBus.emit({
+            type: 'penalty.card',
+            payload: { card, state, detail },
+        });
     }
 
     applyDamage(target: TurnOwner, amount: number): number {

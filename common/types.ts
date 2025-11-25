@@ -76,6 +76,40 @@ export interface EnvironmentCard {
     effects: LogicEffectConfig[];
 }
 
+export interface PenaltyRuntimeState {
+    lastWinner: TurnOwner | null;
+    consecutiveWins: Record<TurnOwner, number>;
+}
+
+export interface PenaltyDamageContext {
+    winner: TurnOwner | 'DRAW';
+    loser: TurnOwner | null;
+    playerScore: number;
+    enemyScore: number;
+    playerBust: boolean;
+    enemyBust: boolean;
+    roundNumber: number;
+    runtime: PenaltyRuntimeState;
+}
+
+export interface PenaltyDamageResult {
+    playerDamage: number;
+    enemyDamage: number;
+    playerHeal?: number;
+    enemyHeal?: number;
+    runtimePatch?: Partial<PenaltyRuntimeState>;
+    messageFragment?: string;
+}
+
+export type PenaltyDamageFunction = (context: PenaltyDamageContext) => PenaltyDamageResult;
+
+export interface PenaltyCard {
+    id: string;
+    name: string;
+    description: string;
+    damageFunction: PenaltyDamageFunction;
+}
+
 export interface Entity {
     hp: number;
     maxHp: number;
@@ -135,6 +169,7 @@ export interface GameState {
     roundCount: number;
     runLevel: number;
     activeEnvironment: EnvironmentCard[];
+    activePenalty: PenaltyCard | null;
     player: Entity & {
         inventory: Item[];
         maxInventory: number;
@@ -144,6 +179,7 @@ export interface GameState {
     deck: Card[];
     discardPile: Card[];
     roundModifiers: RoundModifierState;
+    penaltyRuntime: PenaltyRuntimeState;
     message: string;
     rewardOptions: Item[];
     pickedRewardIndices: number[];
@@ -237,6 +273,7 @@ export type GameEvent =
     | { type: 'damage.number'; payload: { value: number | string; target: TurnOwner; variant: 'DAMAGE' | 'HEAL' | 'GOLD' } }
     | { type: 'item.animation'; payload: { actor: TurnOwner; item: Item; index?: number; phase: 'START' | 'END' } }
     | { type: 'environment.animation'; payload: { card: EnvironmentCard; state: 'entering' | 'holding' | 'exiting' } }
+    | { type: 'penalty.card'; payload: { card: PenaltyCard; state: 'DRAWN' | 'APPLIED'; detail?: string } }
     | { type: 'clash.state'; payload: ClashState };
 
 export type GameEventListener = (event: GameEvent) => void;
