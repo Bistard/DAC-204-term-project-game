@@ -475,6 +475,12 @@ export const Battlefield: React.FC = () => {
 
     return (
         <div className={`min-h-screen bg-felt text-[#f3e5ab] flex flex-col overflow-hidden relative ${visualEffect}`}>
+
+            {/* --- TABLE VISUALS --- */}
+            {/* The Wood Rim Overlay (Frames the table) */}
+            <div className="wood-rim"></div>
+            
+            {/* --- AVATAR HANDS (Background Layer) --- */}
             <PlayerHand side="PLAYER" action={handAction} className={`fixed -bottom-2 -right-6 w-64 h-64 sm:w-96 sm:h-96 pointer-events-none z-[60] ${animClassBottom}`} />
             <div className={`fixed -top-6 -left-6 w-64 h-64 sm:w-96 sm:h-96 pointer-events-none z-[60] ${animClassTop}`}>
                 <div className="w-full h-full rotate-180">
@@ -507,6 +513,7 @@ export const Battlefield: React.FC = () => {
                             <PenaltyCardDisplay
                                 card={gameState.activePenalty}
                                 runtime={gameState.penaltyRuntime}
+                                damagePreview={gameState.penaltyDamagePreview}
                                 isAnimating={lastPenaltyEvent?.state === 'APPLIED'}
                                 className="shadow-2xl"
                             />
