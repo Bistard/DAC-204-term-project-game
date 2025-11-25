@@ -12,6 +12,7 @@ import { ITEMS } from '../../content/items';
 import { ENVIRONMENT_CARDS } from '../../content/environments';
 import { VISUAL_WARN_OFFSET, VISUAL_SAFE_OFFSET, VISUAL_EARLY_OFFSET } from '../../common/constants';
 import { Card, DamageNumber, EnvironmentCard, Item, PenaltyCard, Suit, TurnOwner } from '../../common/types';
+import { PENALTY_CARDS } from '@/content/penalties';
 
 const getFanStyle = (index: number, total: number, isPlayer: boolean, isHovered: boolean): React.CSSProperties => {
     const center = (total - 1) / 2;
@@ -319,8 +320,8 @@ const DeckTrackerModal: React.FC<{
 
 const ItemCompendiumModal: React.FC<{
     onClose: () => void;
-    tab: 'ITEMS' | 'ENV';
-    setTab: (tab: 'ITEMS' | 'ENV') => void;
+    tab: 'ITEMS' | 'ENV' | 'PENALTY';
+    setTab: (tab: 'ITEMS' | 'ENV' | 'PENALTY') => void;
 }> = ({ onClose, tab, setTab }) => (
     <div className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in" onClick={onClose}>
         <div
@@ -362,6 +363,14 @@ const ItemCompendiumModal: React.FC<{
                     >
                         Notices
                     </button>
+                    <button
+                        onClick={() => setTab('PENALTY')}
+                        className={`px-8 py-2 text-xl sm:text-2xl font-bold uppercase tracking-widest western-font rounded transition-all duration-200 ${
+                            tab === 'PENALTY' ? 'bg-[#8d6e63] text-[#271c19] shadow-inner' : 'text-[#8d6e63] hover:bg-[#3e2723] hover:text-[#d7ccc8]'
+                        }`}
+                    >
+                        Penalties
+                    </button>
                 </div>
             </div>
 
@@ -385,8 +394,20 @@ const ItemCompendiumModal: React.FC<{
                             ))}
                         {tab === 'ENV' &&
                             ENVIRONMENT_CARDS.map(card => (
-                                <div key={card.id} className="flex flex-col items-center p-4">
-                                    <EnvironmentCardDisplay card={card} className="scale-125" />
+                                <div key={card.id} className="flex flex-col items-center group">
+                                    <EnvironmentCardDisplay card={card} className="cursor-help shadow-[0_10px_20px_rgba(0,0,0,0.5)]" />
+                                    <div className="mt-4 bg-[#271c19]/80 px-3 py-1 rounded border border-[#5d4037] text-[#a1887f] text-xs font-mono opacity-0 group-hover:opacity-100 transition-opacity">
+                                        ID: {card.name}
+                                    </div>
+                                </div>
+                            ))}
+                        {tab === 'PENALTY' &&
+                            PENALTY_CARDS.map(card => (
+                                <div key={card.id} className="flex flex-col items-center group">
+                                    <PenaltyCardDisplay card={card} className="cursor-help shadow-[0_10px_20px_rgba(0,0,0,0.5)]" />
+                                    <div className="mt-4 bg-[#271c19]/80 px-3 py-1 rounded border border-[#5d4037] text-[#a1887f] text-xs font-mono opacity-0 group-hover:opacity-100 transition-opacity">
+                                        ID: {card.name}
+                                    </div>
                                 </div>
                             ))}
                     </div>
