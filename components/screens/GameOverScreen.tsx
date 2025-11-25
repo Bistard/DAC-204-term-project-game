@@ -1,6 +1,6 @@
 import React from 'react';
 import { Skull, RotateCcw, Coins } from 'lucide-react';
-import { Button } from '../Button';
+import { Button } from '../ui/Button';
 import { GamePhase } from '../../common/types';
 import { useGame } from '../../context/GameContext';
 

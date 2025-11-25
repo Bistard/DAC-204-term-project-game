@@ -1,7 +1,7 @@
 import React from 'react';
 import { Gift, Coins, CheckCircle, ArrowRight } from 'lucide-react';
-import { Button } from '../Button';
-import { ItemCard } from '../ItemCard';
+import { Button } from '../ui/Button';
+import { ItemCard } from '../cards/ItemCard';
 import { useGame } from '../../context/GameContext';
 import { REWARD_PICK_LIMIT } from '../../common/constants';
 

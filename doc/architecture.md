@@ -123,7 +123,7 @@ GameContext 状态 → 触发渲染 → 订阅 EventBus 处理动画
 ### 组件层
 
 - `App.tsx` → `GameProvider` → `GameLayout`，形成单一渲染入口。  
-- `components/GameLayout.tsx` 根据 `GamePhase` 切换不同界面；`PlayerHand`, `ItemCard`, `EnvironmentCardDisplay`, `HealthBar`, `Button` 等负责渲染细节。  
+- `components/layout/GameLayout.tsx` 根据 `GamePhase` 切换 `components/screens/*`；`components/cards/*`, `components/ui/*`, `components/player/*` 等子目录分别承载卡牌、通用 UI 与玩家动画组件。  
 - `damageNumbers`、`visualEffect` 等视觉反馈都通过 `EventBus` 触发，保持逻辑与 UI 解耦。
 
 ## 7. 内容与数据驱动
@@ -150,7 +150,7 @@ GameContext 状态 → 触发渲染 → 订阅 EventBus 处理动画
 1. **新增道具/效果**：在 `content/items.ts` 添加定义；若效果类型为新值，在 `CombatService.applyItemEffects` 中实现逻辑，必要时复用 `resolveTargets`。  
 2. **新增敌人/AI 策略**：扩展 `EnemyTemplate`；若需要新 AI 行为，可在 `CombatService.processAiTurn` 中添加分支或抽象策略表。  
 3. **新增环境/事件**：使用现有 `LogicEffectType`；若需要全新类型，可在 `runStateUtils` 或 RewardService 中扩展对应 hook。  
-4. **界面/交互**：`GameLayout.tsx` 体量较大，逐步拆分为按阶段的子组件有助维护；动画优先通过 `EventBus` 广播。  
+4. **界面/交互**：`components/layout/GameLayout.tsx` 体量较大，逐步拆分为按阶段的 `components/screens/*` 子组件有助维护；动画优先通过 `EventBus` 广播。  
 5. **测试/调试**：大量逻辑依赖 `sleep` 与 `setTimeout`，单元测试可通过注入 mock scheduler 或同步模式；运行调试可以直接查看 `GameProvider` 中的快照。
 
 ## 10. 后续演进建议

@@ -1,12 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { EyeOff, Zap, CheckCircle, Search, X, Swords, Book, Coins } from 'lucide-react';
 import { PlayerHand } from '../PlayerHand';
-import { ItemCard } from '../ItemCard';
-import { HealthBar } from '../HealthBar';
-import { Button } from '../Button';
-import { CardComponent } from '../CardComponent';
-import { EnvironmentCardDisplay } from '../EnvironmentCardDisplay';
-import { PenaltyCardDisplay } from '../penaltyCardDisplay';
+import { ItemCard } from '../cards/ItemCard';
+import { HealthBar } from '../ui/HealthBar';
+import { Button } from '../ui/Button';
+import { CardComponent } from '../cards/card';
+import { EnvironmentCardDisplay } from '../cards/EnvironmentCard';
+import { PenaltyCardDisplay } from '../cards/penaltyCard';
 import { useGame } from '../../context/GameContext';
 import { ITEMS } from '../../content/items';
 import { ENVIRONMENT_CARDS } from '../../content/environments';

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Play, Briefcase, Coins, Heart, Layers, X } from 'lucide-react';
-import { Button } from '../Button';
+import { Button } from '../ui/Button';
 import { useGame } from '../../context/GameContext';
 import {
     COST_UPGRADE_HP,

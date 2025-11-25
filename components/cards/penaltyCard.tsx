@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Skull } from 'lucide-react';
-import { PenaltyCard, PenaltyRuntimeState } from '../common/types';
+import { PenaltyCard, PenaltyRuntimeState } from '../../common/types';
 
 interface Props {
   card: PenaltyCard;
