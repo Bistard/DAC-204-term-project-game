@@ -6,7 +6,7 @@ import { MenuScreen } from './gameLayout/MenuScreen';
 import { GameOverScreen } from './gameLayout/GameOverScreen';
 import { VictoryScreen } from './gameLayout/VictoryScreen';
 import { RewardScreen } from './gameLayout/RewardScreen';
-import { Battlefield } from './gameLayout/Battlefield';
+import { Battlefield } from './gameLayout/BattleScreen';
 
 export const GameLayout: React.FC = () => {
     const { gameState } = useGame();
