@@ -190,6 +190,7 @@ export interface RuntimeFlags {
     isDealing: boolean;
     isProcessingAI: boolean;
     isResolvingRound: boolean;
+    isBattleExiting: boolean;
 }
 
 export interface GameSnapshot {

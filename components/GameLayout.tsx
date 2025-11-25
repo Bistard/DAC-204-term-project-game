@@ -121,6 +121,7 @@ export const GameLayout: React.FC = () => {
         gameState, rewardOptions, pickedIndices, visualEffect, damageNumbers,
         isDealing, handAction, enemyHandAction, scoreAnimating, activeItemEffect, activeItemIndex,
         animatingEnvCard, animatingPenaltyCard, clashState, visibleEnvCount, penaltyRevealed, metaState, goldEarnedThisLevel, lastPenaltyEvent,
+        isBattleExiting,
         startRun, hit, stand, useItem, nextLevel, pickReward, setGameState, buyUpgrade, proceedToRewards
     } = useGame();
 
@@ -171,6 +172,13 @@ export const GameLayout: React.FC = () => {
     
     // Standard size for all sidebar widgets to ensure consistency
     const widgetClass = "relative w-24 h-28 sm:w-26 sm:h-32 bg-[#271c19]/90 border-2 border-[#5d4037] rounded pixel-corners flex flex-col items-center justify-center shadow-lg transition-transform hover:scale-105";
+
+    // CSS classes for entrance/exit animations
+    const animClassTop = isBattleExiting ? 'slide-out-top' : 'slide-in-top';
+    const animClassBottom = isBattleExiting ? 'slide-out-bottom' : 'slide-in-bottom';
+    const animClassLeft = isBattleExiting ? 'slide-out-left' : 'slide-in-left';
+    const animClassRight = isBattleExiting ? 'slide-out-right' : 'slide-in-right';
+
 
     // --- PHASE: MAIN MENU ---
     if (gameState.phase === GamePhase.MENU) {
@@ -413,8 +421,14 @@ export const GameLayout: React.FC = () => {
         <div className={`min-h-screen bg-felt text-[#f3e5ab] flex flex-col overflow-hidden relative ${visualEffect}`}>
             
             {/* --- AVATAR HANDS (Background Layer) --- */}
-            <PlayerHand side="PLAYER" action={handAction} className="fixed -bottom-2 -right-6 w-64 h-64 sm:w-96 sm:h-96 pointer-events-none z-[60]" />
-            <PlayerHand side="ENEMY" action={enemyHandAction} className="fixed -top-6 -left-6 w-64 h-64 sm:w-96 sm:h-96 pointer-events-none z-[60] rotate-180" />
+            <PlayerHand side="PLAYER" action={handAction} className={`fixed -bottom-2 -right-6 w-64 h-64 sm:w-96 sm:h-96 pointer-events-none z-[60] ${animClassBottom}`} />
+            
+            {/* Fix: Wrap enemy hand to separate slide animation from rotation transform */}
+            <div className={`fixed -top-6 -left-6 w-64 h-64 sm:w-96 sm:h-96 pointer-events-none z-[60] ${animClassTop}`}>
+                <div className="w-full h-full rotate-180">
+                    <PlayerHand side="ENEMY" action={enemyHandAction} className="w-full h-full" />
+                </div>
+            </div>
 
             {/* --- ITEM ACTIVATION OVERLAY --- */}
             {activeItemEffect && (
@@ -490,7 +504,6 @@ export const GameLayout: React.FC = () => {
                 </div>
             )}
 
-            {/* --- DECK TRACKER --- */}
             {/* --- DECK TRACKER --- */}
             {showDeckView && (
                 <div 
@@ -654,7 +667,7 @@ export const GameLayout: React.FC = () => {
             <div className="flex-1 relative flex flex-col justify-between p-2 sm:p-4 max-w-6xl mx-auto w-full">
                 
                 {/* --- LEFT SIDEBAR: PENALTY & ENVIRONMENT CARDS --- */}
-                <div className="absolute left-2 sm:left-8 top-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col gap-8 items-center z-40">
+                <div className={`absolute left-2 sm:left-8 top-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col gap-8 items-center z-40 ${animClassLeft}`}>
                     {/* 1. Penalty Card (Top Row) */}
                     {gameState.activePenalty && penaltyRevealed && (
                         <div className="animate-fade-in relative z-20">
@@ -682,7 +695,7 @@ export const GameLayout: React.FC = () => {
                 </div>
                 
                 {/* --- RIGHT SIDEBAR: Tools & Stats --- */}
-                <div className="absolute right-2 sm:right-8 translate-x-1/2 top-1/2 -translate-y-1/2 flex flex-col gap-4 items-center z-30">
+                <div className={`absolute right-2 sm:right-8 translate-x-1/2 top-1/2 -translate-y-1/2 flex flex-col gap-4 items-center z-30 ${animClassRight}`}>
                     {/* Row 1: Stats */}
                     <div className="flex gap-4">
                         {/* Target Score Widget */}
@@ -730,7 +743,7 @@ export const GameLayout: React.FC = () => {
                 </div>
 
                 {/* --- TOP SECTION: ENEMY AREA --- */}
-                <div className={`flex flex-col w-full relative z-20 transition-all duration-500 rounded-xl p-4 ${gameState.turnOwner === 'ENEMY' ? 'bg-red-950/40 shadow-[0_0_50px_-12px_rgba(185,28,28,0.4)] border border-red-900/40' : 'opacity-80'}`}>
+                <div className={`flex flex-col w-full relative z-20 transition-all duration-500 rounded-xl p-4 ${animClassTop} ${gameState.turnOwner === 'ENEMY' ? 'bg-red-950/40 shadow-[0_0_50px_-12px_rgba(185,28,28,0.4)] border border-red-900/40' : 'opacity-80'}`}>
                     <div className="relative h-40 sm:h-56 w-full flex justify-center z-10 mb-2 mt-2">
                         {gameState.enemy && gameState.enemy.hand.map((card, i) => (
                             <div key={card.id} className="absolute top-0 origin-top transition-all duration-500 ease-out" style={getFanStyle(i, gameState.enemy!.hand.length, false, false)}><CardComponent card={card} className="animate-deal-enemy" /></div>
@@ -760,7 +773,7 @@ export const GameLayout: React.FC = () => {
                 </div>
 
                 {/* --- BOTTOM SECTION: PLAYER AREA --- */}
-                <div className={`flex flex-col w-full relative z-20 pb-2 transition-all duration-500 rounded-xl p-4 ${gameState.turnOwner === 'PLAYER' ? 'bg-[#3e2723]/60 shadow-[0_0_50px_-12px_rgba(251,191,36,0.3)] border border-[#a1887f]/40' : 'opacity-80'}`}>
+                <div className={`flex flex-col w-full relative z-20 pb-2 transition-all duration-500 rounded-xl p-4 ${animClassBottom} ${gameState.turnOwner === 'PLAYER' ? 'bg-[#3e2723]/60 shadow-[0_0_50px_-12px_rgba(251,191,36,0.3)] border border-[#a1887f]/40' : 'opacity-80'}`}>
                     <div className="flex flex-wrap justify-center w-full -mb-6 gap-6 items-end relative z-20">
                          <div className={`transition-all duration-300 px-4 py-1 rounded border-2 pixel-corners text-lg sm:text-xl uppercase tracking-widest font-bold flex items-center gap-2 western-font ${clashState.active ? 'opacity-0' : 'opacity-100'} ${gameState.playerStood ? 'bg-red-900/90 border-red-500 text-red-100' : gameState.turnOwner === 'PLAYER' ? 'bg-[#3e2723] border-[#a1887f] text-[#f3e5ab] animate-pulse' : 'bg-[#271c19]/80 border-[#3e2723] text-[#8d6e63]'}`}>
                             {gameState.playerStood ? (<><EyeOff size={18} /> STOOD</>) : gameState.turnOwner === 'PLAYER' ? (<><Zap size={18} /> YOUR DRAW</>) : (<><CheckCircle size={18} /> WAITING</>)}
@@ -791,7 +804,7 @@ export const GameLayout: React.FC = () => {
             </div>
 
             {/* --- BOTTOM LEFT: PLAYER INVENTORY --- */}
-            <div className="absolute bottom-4 left-4 z-50 flex items-end pl-2 pb-2">
+            <div className={`absolute bottom-4 left-4 z-50 flex items-end pl-2 pb-2 ${animClassBottom}`}>
                 {gameState.player.inventory.map((item, idx) => {
                     const isFlying = activeItemIndex === idx && activeItemEffect?.actor === 'PLAYER';
                     return (
@@ -810,7 +823,7 @@ export const GameLayout: React.FC = () => {
 
             {/* --- TOP RIGHT: ENEMY INVENTORY --- */}
             {gameState.enemy && (
-                <div className="absolute top-16 right-4 z-50 flex flex-row-reverse items-start pr-2 pt-2 pointer-events-none">
+                <div className={`absolute top-16 right-4 z-50 flex flex-row-reverse items-start pr-2 pt-2 pointer-events-none ${animClassTop}`}>
                     {gameState.enemy.inventory.map((item, idx) => (
                         <div key={`enemy-item-${idx}`} className="transition-all duration-300 ease-out origin-top-right animate-deal-item-enemy" style={{ marginRight: idx === 0 ? 0 : enemyInvOverlap, zIndex: 50 + idx, transform: `translateY(${idx * 15}px)`, }}>
                             <ItemCard item={item} isHidden={true} className="scale-90 shadow-lg" />

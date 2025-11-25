@@ -92,6 +92,9 @@ export class RoundService {
     async startRound() {
         const snapshot = this.deps.store.snapshot;
         if (snapshot.flags.isDealing || snapshot.state.phase !== GamePhase.BATTLE) return;
+        
+        this.deps.store.updateFlags(f => ({ ...f, isBattleExiting: false }));
+        
         this.setDealing(true);
         this.clearRoundModifiers('round.start', true);
 
@@ -465,7 +468,7 @@ export class RoundService {
 
         this.clearRoundModifiers('round.resolved', true);
         const playerDead = this.deps.store.snapshot.state.player.hp <= 0;
-        const enemyDeadAfterDamage = this.deps.store.snapshot.state.enemy?.hp === 0;
+        const enemyDead = this.deps.store.snapshot.state.enemy?.hp <= 0;
 
         if (
             result === 'player_win' &&
@@ -483,6 +486,16 @@ export class RoundService {
         );
 
         await sleep(DELAY_TURN_END);
+        
+        // exit animations
+        if (playerDead || enemyDead) {
+            this.deps.store.updateFlags(
+                flags => ({ ...flags, isBattleExiting: true }),
+                this.deps.createMeta('flag.exit', 'Battle exiting animation', undefined, { suppressHistory: true })
+            );
+            await sleep(DELAY_STANDARD);
+        }
+
         if (playerDead) {
             this.deps.store.updateState(
                 prev => ({
@@ -495,7 +508,6 @@ export class RoundService {
             return;
         }
 
-        const enemyDead = enemyDeadAfterDamage || this.deps.store.snapshot.state.enemy?.hp === 0;
         if (enemyDead) {
             await this.deps.rewardService.handleVictory();
         } else {

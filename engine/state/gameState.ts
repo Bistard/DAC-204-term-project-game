@@ -58,6 +58,7 @@ export const defaultRuntimeFlags: RuntimeFlags = {
     isDealing: false,
     isProcessingAI: false,
     isResolvingRound: false,
+    isBattleExiting: false,
 };
 
 export const createSnapshot = (

@@ -48,6 +48,7 @@ interface GameContextType {
     metaState: MetaState;
     goldEarnedThisLevel: number;
     lastPenaltyEvent: { card: PenaltyCard; state: 'DRAWN' | 'APPLIED'; detail?: string } | null;
+    isBattleExiting: boolean;
     startRun: () => void;
     hit: (actor: TurnOwner) => Promise<void> | void;
     stand: (actor: TurnOwner) => void;
@@ -336,6 +337,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             metaState,
             goldEarnedThisLevel: gameState.goldEarnedThisLevel,
             lastPenaltyEvent,
+            isBattleExiting: snapshot.flags.isBattleExiting,
             startRun,
             hit,
             stand,

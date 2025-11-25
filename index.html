@@ -478,6 +478,78 @@
       .animate-victory-text-in {
           animation: victory-text-in 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
       }
+
+      /* --- BATTLE ENTRANCE/EXIT ANIMATIONS --- */
+
+      @keyframes slide-in-top {
+        0% { transform: translateY(-100%); opacity: 0; }
+        100% { transform: translateY(0); opacity: 1; }
+      }
+      .slide-in-top {
+        animation: slide-in-top 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+      }
+
+      @keyframes slide-in-bottom {
+        0% { transform: translateY(100%); opacity: 0; }
+        100% { transform: translateY(0); opacity: 1; }
+      }
+      .slide-in-bottom {
+        animation: slide-in-bottom 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+      }
+
+      @keyframes slide-in-left {
+        0% { transform: translate(-100%, -50%); opacity: 0; }
+        100% { transform: translate(-50%, -50%); opacity: 1; }
+      }
+      .slide-in-left {
+        /* Note: Centered elements usually use translate(-50%, -50%). 
+           So we start from (-100%, -50%) which is left-off-screen */
+        animation: slide-in-left 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+      }
+      
+      @keyframes slide-in-right {
+        0% { transform: translate(100%, -50%); opacity: 0; }
+        100% { transform: translate(50%, -50%); opacity: 1; }
+      }
+      .slide-in-right {
+         /* Note: Centered elements usually use translate(50%, -50%). 
+           So we start from (100%, -50%) which is right-off-screen */
+        animation: slide-in-right 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+      }
+
+      /* EXIT ANIMATIONS (Reverse) */
+      @keyframes slide-out-top {
+        0% { transform: translateY(0); opacity: 1; }
+        100% { transform: translateY(-100%); opacity: 0; }
+      }
+      .slide-out-top {
+        animation: slide-out-top 0.8s cubic-bezier(0.55, 0.055, 0.675, 0.19) forwards;
+      }
+
+      @keyframes slide-out-bottom {
+        0% { transform: translateY(0); opacity: 1; }
+        100% { transform: translateY(100%); opacity: 0; }
+      }
+      .slide-out-bottom {
+        animation: slide-out-bottom 0.8s cubic-bezier(0.55, 0.055, 0.675, 0.19) forwards;
+      }
+
+      @keyframes slide-out-left {
+        0% { transform: translate(-50%, -50%); opacity: 1; }
+        100% { transform: translate(-100%, -50%); opacity: 0; }
+      }
+      .slide-out-left {
+        animation: slide-out-left 0.8s cubic-bezier(0.55, 0.055, 0.675, 0.19) forwards;
+      }
+
+      @keyframes slide-out-right {
+        0% { transform: translate(50%, -50%); opacity: 1; }
+        100% { transform: translate(100%, -50%); opacity: 0; }
+      }
+      .slide-out-right {
+        animation: slide-out-right 0.8s cubic-bezier(0.55, 0.055, 0.675, 0.19) forwards;
+      }
+
     </style>
   <script type="importmap">
 {
