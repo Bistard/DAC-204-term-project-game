@@ -59,7 +59,7 @@ export class RoundService {
     startRun() {
         const meta = this.deps.getMetaState();
         const deck = createDeck();
-        const envCards = getRandomEnvironment(3);
+        const envCards = getRandomEnvironment(0);
         const penaltyCard = getRandomPenaltyCard();
         const baseState = createInitialGameState(meta);
         const initialState = applyEnvironmentRules({

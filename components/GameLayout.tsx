@@ -491,42 +491,85 @@ export const GameLayout: React.FC = () => {
             )}
 
             {/* --- DECK TRACKER --- */}
+            {/* --- DECK TRACKER --- */}
             {showDeckView && (
                 <div 
-                    className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+                    className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in"
                     onClick={() => setShowDeckView(false)}
                 >
                     <div 
-                        className="bg-[#3e2723] border-4 border-[#5d4037] p-6 sm:p-8 max-w-5xl w-full pixel-corners shadow-2xl relative"
+                        className="relative max-w-5xl w-full bg-[#2a1d18] border-[8px] border-[#3e2723] rounded-lg shadow-[0_0_50px_rgba(0,0,0,0.9)] flex flex-col overflow-hidden pixel-corners"
                         onClick={(e) => e.stopPropagation()} 
                     >
-                        <button onClick={() => setShowDeckView(false)} className="absolute top-2 right-2 text-[#d7ccc8] hover:text-white"><X size={32} /></button>
-                        
-                        <div className="text-center mb-6">
-                            <h2 className="text-4xl text-[#f3e5ab] font-bold flex items-center justify-center gap-2 western-font">
-                                <Search /> REMAINING CARDS
+                        {/* Close Button */}
+                        <button 
+                            onClick={() => setShowDeckView(false)} 
+                            className="absolute top-4 right-4 z-50 text-[#a1887f] hover:text-[#f3e5ab] transition-colors bg-[#271c19] p-1.5 rounded border border-[#5d4037] shadow-lg hover:border-[#8d6e63]"
+                        >
+                            <X size={28} />
+                        </button>
+
+                        {/* Header Section */}
+                        <div className="bg-[#271c19] p-6 border-b-4 border-[#1a110d] flex flex-col items-center justify-center relative shadow-lg bg-[url('https://www.transparenttextures.com/patterns/dark-leather.png')]">
+                             {/* Decorative Corner Rivets */}
+                             <div className="absolute top-3 left-3 w-3 h-3 rounded-full bg-[#1a110d] border border-[#3e2723] shadow-inner"></div>
+                             <div className="absolute top-3 right-3 w-3 h-3 rounded-full bg-[#1a110d] border border-[#3e2723] shadow-inner"></div>
+                             <div className="absolute bottom-3 left-3 w-3 h-3 rounded-full bg-[#1a110d] border border-[#3e2723] shadow-inner"></div>
+                             <div className="absolute bottom-3 right-3 w-3 h-3 rounded-full bg-[#1a110d] border border-[#3e2723] shadow-inner"></div>
+
+                            <h2 className="text-4xl sm:text-5xl text-[#f3e5ab] font-black tracking-widest western-font drop-shadow-[2px_2px_0_#000] mb-2 uppercase">
+                                Dealer's Shoe
                             </h2>
-                            <p className="text-[#a1887f] mt-2 text-3xl">In Deck: {gameState.deck.length} / 11</p>
+                            <div className="flex items-center gap-6 text-[#8d6e63] font-mono text-xl sm:text-2xl uppercase tracking-wider bg-black/30 px-6 py-1 rounded-full border border-[#3e2723]">
+                                <span>Total: 11</span>
+                                <span className="text-[#5d4037]">|</span>
+                                <span>Remaining: <span className="text-[#f3e5ab] font-bold">{gameState.deck.length}</span></span>
+                            </div>
                         </div>
 
-                        <div className="flex flex-wrap justify-center gap-4">
-                            {['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'A'].map((rank) => {
-                                const isPlayerCard = gameState.player.hand.some(c => c.rank === rank);
-                                const isEnemyVisibleCard = gameState.enemy?.hand.some(c => c.rank === rank && c.isFaceUp);
-                                const isRevealed = isPlayerCard || isEnemyVisibleCard;
-                                const showAsAvailable = !isRevealed;
+                        {/* Felt Area */}
+                        <div className="bg-[#1b2e1f] p-8 sm:p-12 shadow-[inset_0_0_80px_rgba(0,0,0,0.8)] relative min-h-[400px] flex items-center justify-center overflow-hidden">
+                            {/* Felt Texture & Noise */}
+                            <div className="absolute inset-0 opacity-40 bg-[radial-gradient(circle_at_center,transparent_0%,#000_100%)] pointer-events-none"></div>
+                            <div className="absolute inset-0 opacity-5 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPgo8cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSI0IiBmaWxsPSIjZmZmIi8+CjxyZWN0IHdpZHRoPSIxIiBoZWlnaHQ9IjEiIGZpbGw9IiMwMDAiIG9wYWNpdHk9IjAuMSIvPgo8L3N2Zz4=')]"></div>
 
-                                return (
-                                    <div key={rank} className={`relative transition-all duration-300 ${!showAsAvailable ? 'opacity-20 grayscale scale-90' : 'scale-100 hover:scale-110 hover:z-10'}`}>
-                                        <CardComponent card={{suit: Suit.Spades, rank: rank, value: 0, id: `tracker-${rank}`, isFaceUp: true, isAce: rank === 'A'}} className="sm:w-20 sm:h-28" />
-                                        {!showAsAvailable && (
-                                            <div className="absolute inset-0 flex items-center justify-center z-20">
-                                                <X className="text-red-800 w-12 h-12 opacity-80" />
+                            {/* Cards Grid */}
+                            <div className="relative z-10 flex flex-wrap justify-center gap-6 sm:gap-8 max-w-4xl">
+                                {['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'A'].map((rank) => {
+                                    const isPlayerCard = gameState.player.hand.some(c => c.rank === rank);
+                                    const isEnemyVisibleCard = gameState.enemy?.hand.some(c => c.rank === rank && c.isFaceUp);
+                                    const isRevealed = isPlayerCard || isEnemyVisibleCard;
+                                    const showAsAvailable = !isRevealed;
+
+                                    return (
+                                        <div key={rank} className="relative group">
+                                            {/* Card Component */}
+                                            <div className={`transition-all duration-500 transform ${showAsAvailable ? 'hover:-translate-y-4 hover:scale-110 hover:rotate-1 hover:z-20 cursor-help shadow-xl' : 'opacity-60 grayscale-[0.8] scale-95 rotate-1 blur-[0.5px]'}`}>
+                                                <CardComponent 
+                                                    card={{suit: Suit.Spades, rank: rank, value: 0, id: `tracker-${rank}`, isFaceUp: true, isAce: rank === 'A'}} 
+                                                    className="w-20 h-28 sm:w-24 sm:h-36 shadow-lg" 
+                                                />
                                             </div>
-                                        )}
-                                    </div>
-                                );
-                            })}
+
+                                            {/* Revealed Overlay (Red X) */}
+                                            {!showAsAvailable && (
+                                                <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
+                                                     <svg viewBox="0 0 100 100" className="w-[120%] h-[120%] drop-shadow-md opacity-80 animate-fade-in">
+                                                        <path d="M 20 20 L 80 80" stroke="#7f1d1d" strokeWidth="12" strokeLinecap="round" />
+                                                        <path d="M 80 20 L 20 80" stroke="#7f1d1d" strokeWidth="12" strokeLinecap="round" />
+                                                    </svg>
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        {/* Footer Info */}
+                        <div className="bg-[#271c19] p-3 border-t-4 border-[#1a110d] flex justify-between items-center text-[#5d4037] font-bold font-mono text-xs sm:text-sm px-6">
+                             <span className="uppercase tracking-widest">Only 1 suit in play</span>
+                             <span className="uppercase tracking-widest">Aces = 1 or 11</span>
                         </div>
                     </div>
                 </div>
@@ -534,21 +577,74 @@ export const GameLayout: React.FC = () => {
 
             {/* --- ITEM COMPENDIUM --- */}
             {showItemCompendium && (
-                <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setShowItemCompendium(false)}>
-                     <div className="bg-[#3e2723] border-4 border-[#5d4037] p-6 sm:p-8 max-w-5xl w-full max-h-[90vh] overflow-y-auto pixel-corners shadow-2xl relative" onClick={(e) => e.stopPropagation()} >
-                        <button onClick={() => setShowItemCompendium(false)} className="absolute top-2 right-2 text-[#d7ccc8] hover:text-white"><X size={32} /></button>
-                        <div className="text-center mb-6"><h2 className="text-4xl text-[#f3e5ab] font-bold flex items-center justify-center gap-2 western-font"><Book /> LEDGER </h2></div>
-                        <div className="flex justify-center gap-6 mb-8 border-b-2 border-[#5d4037] pb-4">
-                            <button onClick={() => setCompendiumTab('ITEMS')} className={`px-6 py-2 text-3xl font-bold uppercase tracking-wider pixel-corners border-b-4 active:border-b-0 active:translate-y-1 transition-all ${compendiumTab === 'ITEMS' ? 'bg-[#d7ccc8] text-[#3e2723] border-[#a1887f]' : 'bg-[#271c19] text-[#8d6e63] border-[#3e2723] hover:bg-[#3e2723]'}`}>Goods</button>
-                            <button onClick={() => setCompendiumTab('ENV')} className={`px-6 py-2 text-3xl font-bold uppercase tracking-wider pixel-corners border-b-4 active:border-b-0 active:translate-y-1 transition-all ${compendiumTab === 'ENV' ? 'bg-amber-600 text-[#271c19] border-amber-800' : 'bg-[#271c19] text-[#8d6e63] border-[#3e2723] hover:bg-[#3e2723]'}`}>Notices</button>
+                <div className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in" onClick={() => setShowItemCompendium(false)}>
+                     <div className="relative max-w-6xl w-full h-[85vh] bg-[#2a1d18] border-[8px] border-[#3e2723] rounded-lg shadow-[0_0_50px_rgba(0,0,0,0.9)] flex flex-col overflow-hidden pixel-corners" onClick={(e) => e.stopPropagation()} >
+                        
+                        {/* Close Button */}
+                        <button 
+                            onClick={() => setShowItemCompendium(false)} 
+                            className="absolute top-4 right-4 z-50 text-[#a1887f] hover:text-[#f3e5ab] transition-colors bg-[#271c19] p-1.5 rounded border border-[#5d4037] shadow-lg hover:border-[#8d6e63]"
+                        >
+                            <X size={28} />
+                        </button>
+
+                        {/* Header Section */}
+                        <div className="bg-[#271c19] p-6 border-b-4 border-[#1a110d] flex flex-col items-center justify-center relative shadow-lg bg-[url('https://www.transparenttextures.com/patterns/dark-leather.png')] shrink-0">
+                             {/* Decorative Corner Rivets */}
+                             <div className="absolute top-3 left-3 w-3 h-3 rounded-full bg-[#1a110d] border border-[#3e2723] shadow-inner"></div>
+                             <div className="absolute top-3 right-3 w-3 h-3 rounded-full bg-[#1a110d] border border-[#3e2723] shadow-inner"></div>
+                             <div className="absolute bottom-3 left-3 w-3 h-3 rounded-full bg-[#1a110d] border border-[#3e2723] shadow-inner"></div>
+                             <div className="absolute bottom-3 right-3 w-3 h-3 rounded-full bg-[#1a110d] border border-[#3e2723] shadow-inner"></div>
+
+                             <h2 className="text-4xl sm:text-5xl text-[#f3e5ab] font-black tracking-widest western-font drop-shadow-[2px_2px_0_#000] mb-4 uppercase flex items-center gap-3">
+                                <Book className="w-10 h-10 text-[#8d6e63]" /> Ledger
+                            </h2>
+                            
+                            {/* Tabs */}
+                            <div className="flex gap-4 bg-black/30 p-1.5 rounded-lg border border-[#3e2723]">
+                                <button 
+                                    onClick={() => setCompendiumTab('ITEMS')} 
+                                    className={`px-8 py-2 text-xl sm:text-2xl font-bold uppercase tracking-widest western-font rounded transition-all duration-200 ${compendiumTab === 'ITEMS' ? 'bg-[#8d6e63] text-[#271c19] shadow-inner' : 'text-[#8d6e63] hover:bg-[#3e2723] hover:text-[#d7ccc8]'}`}
+                                >
+                                    Items
+                                </button>
+                                <div className="w-px bg-[#5d4037] my-1"></div>
+                                <button 
+                                    onClick={() => setCompendiumTab('ENV')} 
+                                    className={`px-8 py-2 text-xl sm:text-2xl font-bold uppercase tracking-widest western-font rounded transition-all duration-200 ${compendiumTab === 'ENV' ? 'bg-[#8d6e63] text-[#271c19] shadow-inner' : 'text-[#8d6e63] hover:bg-[#3e2723] hover:text-[#d7ccc8]'}`}
+                                >
+                                    Notices
+                                </button>
+                            </div>
                         </div>
-                        <div className="flex flex-wrap justify-center gap-8 min-h-[300px]">
-                            {compendiumTab === 'ITEMS' && ITEMS.map((item) => (
-                                <div key={item.id} className="flex flex-col items-center"><ItemCard item={item} disabled={false} className="cursor-help" onClick={() => {}} /></div>
-                            ))}
-                            {compendiumTab === 'ENV' && ENVIRONMENT_CARDS.map((card) => (
-                                <div key={card.id} className="flex flex-col items-center p-2"><EnvironmentCardDisplay card={card} className="scale-110" /></div>
-                            ))}
+
+                        {/* Felt Area - Scrollable */}
+                        <div className="flex-1 bg-[#1b2e1f] relative shadow-[inset_0_0_80px_rgba(0,0,0,0.8)] overflow-y-auto overflow-x-hidden debug-console-scroll" style={{ scrollbarWidth: 'thin', scrollbarColor: '#5d4037 #1b2e1f' }}>
+                            {/* Felt Texture & Noise */}
+                            <div className="absolute inset-0 opacity-40 bg-[radial-gradient(circle_at_center,transparent_0%,#000_100%)] pointer-events-none fixed"></div>
+                            <div className="absolute inset-0 opacity-5 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPgo8cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSI0IiBmaWxsPSIjZmZmIi8+CjxyZWN0IHdpZHRoPSIxIiBoZWlnaHQ9IjEiIGZpbGw9IiMwMDAiIG9wYWNpdHk9IjAuMSIvPgo8L3N2Zz4=')] fixed pointer-events-none"></div>
+
+                            <div className="relative z-10 p-8 sm:p-12">
+                                <div className="flex flex-wrap justify-center gap-8 sm:gap-12 pt-24 pb-20 sm:pt-32 sm:pb-28">
+                                    {compendiumTab === 'ITEMS' && ITEMS.map((item) => (
+                                        <div key={item.id} className="flex flex-col items-center group">
+                                            <ItemCard item={item} disabled={false} className="cursor-help shadow-[0_10px_20px_rgba(0,0,0,0.5)]" onClick={() => {}} />
+                                            <div className="mt-4 bg-[#271c19]/80 px-3 py-1 rounded border border-[#5d4037] text-[#a1887f] text-xs font-mono opacity-0 group-hover:opacity-100 transition-opacity">
+                                                ID: {item.name}
+                                            </div>
+                                        </div>
+                                    ))}
+                                    {compendiumTab === 'ENV' && ENVIRONMENT_CARDS.map((card) => (
+                                        <div key={card.id} className="flex flex-col items-center p-4"><EnvironmentCardDisplay card={card} className="scale-125" /></div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+
+                         {/* Footer Info */}
+                        <div className="bg-[#271c19] p-3 border-t-4 border-[#1a110d] flex justify-between items-center text-[#5d4037] font-bold font-mono text-xs sm:text-sm px-6 shrink-0">
+                             <span className="uppercase tracking-widest">Last Hand Trading Co.</span>
+                             <span className="uppercase tracking-widest">Est. 18XX</span>
                         </div>
                     </div>
                 </div>
