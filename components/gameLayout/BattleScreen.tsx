@@ -176,30 +176,61 @@ const EnvironmentAnimation: React.FC<{
 const ClashOverlay: React.FC<{ clashState: ReturnType<typeof useGame>['clashState'] }> = ({ clashState }) => {
     if (!clashState.active) return null;
     return (
-        <div className="fixed inset-0 z-[150] pointer-events-none flex items-center justify-center">
-            <div className="relative w-full h-full max-w-4xl">
-                <div className="absolute inset-0 animate-clash-impact pointer-events-none"></div>
-                <div className="absolute w-32 h-32 flex items-center justify-center animate-clash-move-enemy">
-                    <div
-                        className={`text-9xl font-black western-font text-white drop-shadow-[0_4px_0_#000] ${
-                            clashState.result === 'player_win' ? 'opacity-50 blur-sm transition-all delay-[1.5s] duration-500' : 'scale-110'
-                        }`}
-                    >
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm transition-all duration-300">
+            {/* VS Badge in background */}
+            <div className="absolute inset-0 flex items-center justify-center overflow-hidden pointer-events-none">
+                    <div className="text-[20rem] font-black text-white/5 western-font animate-pulse">VS</div>
+            </div>
+            
+            {/* Container */}
+            <div className="relative w-full max-w-2xl h-[60vh] flex flex-col items-center justify-center">
+                
+                {/* Impact Effect (Shockwave) */}
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 rounded-full border-4 border-amber-500 animate-shockwave opacity-0"></div>
+                
+                {/* Enemy Score (Top) */}
+                <div className="relative mb-4 flex flex-col items-center z-20 animate-clash-enter-top">
+                        <div className="text-2xl text-red-300 font-bold tracking-widest uppercase mb-2 drop-shadow-md">Enemy</div>
+                        <div className={`
+                        text-9xl font-black western-font relative 
+                        ${clashState.result === 'player_win' 
+                            ? 'animate-loser-shake text-stone-500' 
+                            : clashState.result === 'enemy_win' ? 'animate-winner-pulse-red text-red-500 drop-shadow-[0_0_20px_rgba(239,68,68,0.8)]' : 'text-red-200'}
+                        `}>
                         {clashState.enemyScore}
+                        {clashState.enemyScore > clashState.targetScore && (
+                            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 -rotate-12 border-4 border-red-800 text-red-800 text-4xl font-black px-4 py-1 opacity-0 animate-stamp-pop bg-red-950/80 whitespace-nowrap">
+                                BUSTED
+                            </div>
+                        )}
+                        </div>
+                </div>
+
+                {/* VS Icon (Center) */}
+                <div className="z-30 my-2 animate-vs-pop">
+                    <div className="w-16 h-16 bg-[#3e2723] border-4 border-[#8d6e63] rotate-45 flex items-center justify-center shadow-lg">
+                        <span className="text-[#f3e5ab] font-bold text-2xl -rotate-45 western-font">VS</span>
                     </div>
                 </div>
-                <div className="absolute w-32 h-32 flex items-center justify-center animate-clash-move-player">
-                    <div
-                        className={`text-9xl font-black western-font text-white drop-shadow-[0_4px_0_#000] ${
-                            clashState.result === 'enemy_win' ? 'opacity-50 blur-sm transition-all delay-[1.5s] duration-500' : 'scale-110'
-                        }`}
-                    >
+
+                {/* Player Score (Bottom) */}
+                <div className="relative mt-4 flex flex-col items-center z-20 animate-clash-enter-bottom">
+                        <div className={`
+                        text-9xl font-black western-font relative
+                        ${clashState.result === 'enemy_win' 
+                            ? 'animate-loser-shake text-stone-500' 
+                            : clashState.result === 'player_win' ? 'animate-winner-pulse-amber text-amber-400 drop-shadow-[0_0_20px_rgba(251,191,36,0.8)]' : 'text-amber-200'}
+                        `}>
                         {clashState.playerScore}
-                    </div>
+                        {clashState.playerScore > clashState.targetScore && (
+                            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 -rotate-12 border-4 border-red-800 text-red-800 text-4xl font-black px-4 py-1 opacity-0 animate-stamp-pop bg-red-950/80 whitespace-nowrap">
+                                BUSTED
+                            </div>
+                        )}
+                        </div>
+                        <div className="text-2xl text-amber-200 font-bold tracking-widest uppercase mt-2 drop-shadow-md">You</div>
                 </div>
-                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 opacity-0 animate-fade-in delay-[0.8s] duration-200">
-                    <Swords className="w-32 h-32 text-white/40 animate-pulse" />
-                </div>
+
             </div>
         </div>
     );
