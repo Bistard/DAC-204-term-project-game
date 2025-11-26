@@ -1,6 +1,7 @@
 import { EventBus } from './eventBus';
 import { CombatService } from './services/combatService';
 import { RewardService } from './services/rewardService';
+import { RunLifecycleService } from './services/runLifecycleService';
 import { GameStore } from './state/gameStore';
 import { createInitialGameState } from './state/gameState';
 import {
@@ -28,15 +29,18 @@ export class GameEngine {
     private store: GameStore;
     private combatService: CombatService;
     private rewardService: RewardService;
+    private runLifecycleService: RunLifecycleService;
 
     constructor(private deps: GameEngineDeps) {
         this.store = new GameStore(createInitialGameState(deps.getMetaState()));
+        this.runLifecycleService = new RunLifecycleService();
 
         this.rewardService = new RewardService({
             store: this.store,
             eventBus: deps.eventBus,
             getMetaState: deps.getMetaState,
             updateMetaState: deps.updateMetaState,
+            runLifecycleService: this.runLifecycleService,
         });
 
         this.combatService = new CombatService({
@@ -44,6 +48,7 @@ export class GameEngine {
             eventBus: deps.eventBus,
             getMetaState: deps.getMetaState,
             rewardService: this.rewardService,
+            runLifecycleService: this.runLifecycleService,
         });
     }
 

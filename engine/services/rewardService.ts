@@ -3,38 +3,32 @@ import {
     COST_UPGRADE_INVENTORY,
     REWARD_PICK_LIMIT,
     REWARD_POOL_SIZE,
-    STARTING_HP,
-    TARGET_SCORE,
 } from '../../common/constants';
 import { EVENT_EFFECTS, GameEventTrigger } from '../../content/events';
 import { EventBus } from '../eventBus';
 import { GameStore } from '../state/gameStore';
 import { GamePhase, Item, LogicEffectConfig, MetaState, StoreUpdateMeta, TurnOwner } from '../../common/types';
-import {
-    getRandomEnemy,
-    getRandomEnvironment,
-    getRandomItems,
-    createDeck,
-    applyEnvironmentRules,
-    getRandomPenaltyCard,
-} from '../utils';
-import { createDefaultPenaltyRuntime, createDefaultRoundModifiers } from '../state/gameState';
+import { getRandomItems } from '../utils';
 import { MetaUpdater } from '../../common/types';
+import { RunLifecycleService } from './runLifecycleService';
 
 interface RewardServiceDeps {
     store: GameStore;
     eventBus: EventBus;
     getMetaState: () => MetaState;
     updateMetaState: MetaUpdater;
+    runLifecycleService: RunLifecycleService;
 }
 
 export class RewardService {
     private store: GameStore;
     private eventBus: EventBus;
+    private runLifecycle: RunLifecycleService;
 
     constructor(private deps: RewardServiceDeps) {
         this.store = deps.store;
         this.eventBus = deps.eventBus;
+        this.runLifecycle = deps.runLifecycleService;
     }
 
     async handleVictory() {
@@ -89,50 +83,29 @@ export class RewardService {
 
     prepareNextLevel() {
         const snapshot = this.store.snapshot;
-        const nextLevel = snapshot.state.runLevel + 1;
-        const envCount = nextLevel <= 1 ? 0 : Math.min(3, nextLevel - 1);
-        const envCards = getRandomEnvironment(envCount);
-        const penaltyCard = getRandomPenaltyCard();
-
         const meta = this.deps.getMetaState();
+        const lifecycleState = this.runLifecycle.prepareNextLevel(snapshot.state, meta);
+        const nextLevelState = {
+            ...lifecycleState,
+            goldEarnedThisLevel: 0,
+            rewardOptions: [],
+            pickedRewardIndices: [],
+        };
 
-        this.store.updateState(
-            prev =>
-                applyEnvironmentRules({
-                    ...prev,
-                    runLevel: nextLevel,
-                    roundCount: 1,
-                    targetScore: TARGET_SCORE,
-                    baseTargetScore: TARGET_SCORE,
-                    phase: GamePhase.BATTLE,
-                    player: {
-                        ...prev.player,
-                        hp: STARTING_HP + meta.upgrades.hpLevel,
-                        hand: [],
-                        score: 0,
-                        shield: 0,
-                    },
-                    enemy: getRandomEnemy(nextLevel),
-                    activeEnvironment: envCards,
-                    activePenalty: penaltyCard,
-                    penaltyRuntime: createDefaultPenaltyRuntime(),
-                    deck: createDeck(),
-                    discardPile: [],
-                    turnOwner: 'PLAYER',
-                    playerStood: false,
-                    enemyStood: false,
-                    message: `Level ${nextLevel} Started.`,
-                    goldEarnedThisLevel: 0,
-                    rewardOptions: [],
-                    pickedRewardIndices: [],
-                    roundModifiers: createDefaultRoundModifiers(),
-                }),
-            this.meta('next-level', 'Prepare next level', { level: nextLevel })
+        this.store.setState(
+            nextLevelState,
+            this.meta('next-level', 'Prepare next level', { level: nextLevelState.runLevel })
         );
-        this.eventBus.emit({
-            type: 'penalty.card',
-            payload: { card: penaltyCard, state: 'DRAWN', detail: `Level ${nextLevel} penalty selected.` },
-        });
+        if (nextLevelState.activePenalty) {
+            this.eventBus.emit({
+                type: 'penalty.card',
+                payload: {
+                    card: nextLevelState.activePenalty,
+                    state: 'DRAWN',
+                    detail: `Level ${nextLevelState.runLevel} penalty selected.`,
+                },
+            });
+        }
     }
 
     buyUpgrade(type: 'HP' | 'INVENTORY') {

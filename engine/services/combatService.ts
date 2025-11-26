@@ -7,12 +7,14 @@ import { RewardService } from './rewardService';
 import { RoundService, CreateMetaFn } from './roundService';
 import { ItemEffectService } from './itemEffectService';
 import { AiService } from './aiService';
+import { RunLifecycleService } from './runLifecycleService';
 
 interface CombatServiceDeps {
     store: GameStore;
     eventBus: EventBus;
     getMetaState: () => MetaState;
     rewardService: RewardService;
+    runLifecycleService: RunLifecycleService;
 }
 
 export class CombatService {
@@ -32,6 +34,7 @@ export class CombatService {
             eventBus: this.eventBus,
             getMetaState: this.deps.getMetaState,
             rewardService: this.deps.rewardService,
+            runLifecycleService: this.deps.runLifecycleService,
             createMeta,
             onRoundReady: () => this.evaluateFlow(),
         });

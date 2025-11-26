@@ -7,11 +7,10 @@ import {
     DELAY_TURN_END,
     DELAY_XL,
     INIT_ITEM_CARD,
-    STARTING_HP,
 } from '../../common/constants';
 import { EventBus } from '../eventBus';
 import { GameStore } from '../state/gameStore';
-import { createDefaultPenaltyRuntime, createDefaultRoundModifiers, createInitialGameState } from '../state/gameState';
+import { createDefaultRoundModifiers } from '../state/gameState';
 import {
     Card,
     ClashState,
@@ -26,16 +25,13 @@ import {
     TurnOwner,
 } from '../../common/types';
 import {
-    applyEnvironmentRules,
     calculateScore,
     createDeck,
-    getRandomEnemy,
-    getRandomEnvironment,
-    getRandomPenaltyCard,
     getRandomItems,
     sleep,
 } from '../utils';
 import { RewardService } from './rewardService';
+import { RunLifecycleService } from './runLifecycleService';
 
 export type CreateMetaFn = (
     tag: string,
@@ -49,6 +45,7 @@ interface RoundServiceDeps {
     eventBus: EventBus;
     getMetaState: () => MetaState;
     rewardService: RewardService;
+    runLifecycleService: RunLifecycleService;
     createMeta: CreateMetaFn;
     onRoundReady: () => void | Promise<void>;
 }
@@ -58,33 +55,14 @@ export class RoundService {
 
     startRun() {
         const meta = this.deps.getMetaState();
-        const deck = createDeck();
-        const envCards = getRandomEnvironment(3);
-        const penaltyCard = getRandomPenaltyCard();
-        const baseState = createInitialGameState(meta);
-        const initialState = applyEnvironmentRules({
-            ...baseState,
-            phase: GamePhase.BATTLE,
-            runLevel: 1,
-            roundCount: 1,
-            deck,
-            discardPile: [],
-            player: {
-                ...baseState.player,
-                hp: STARTING_HP + meta.upgrades.hpLevel,
-                maxHp: STARTING_HP + meta.upgrades.hpLevel,
-            },
-            enemy: getRandomEnemy(1),
-            activeEnvironment: envCards,
-            activePenalty: penaltyCard,
-            penaltyRuntime: createDefaultPenaltyRuntime(),
-            message: `Run started!`,
-        });
+        const initialState = this.deps.runLifecycleService.startNewRun(meta);
         this.deps.store.setState(
             initialState,
             this.deps.createMeta('start-run', 'Initialize new run', { runLevel: initialState.runLevel })
         );
-        this.emitPenaltyEvent(penaltyCard, 'DRAWN', 'Battle penalty selected.');
+        if (initialState.activePenalty) {
+            this.emitPenaltyEvent(initialState.activePenalty, 'DRAWN', 'Battle penalty selected.');
+        }
 
         this.startRound();
     }
