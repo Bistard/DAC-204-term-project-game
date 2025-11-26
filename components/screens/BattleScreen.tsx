@@ -240,10 +240,11 @@ const ClashOverlay: React.FC<{ clashState: ReturnType<typeof useGame>['clashStat
 
 const DeckTrackerModal: React.FC<{
     onClose: () => void;
-    deckLength: number;
+    deck: Card[];
     playerHand: Card[];
     enemyHand?: Card[];
-}> = ({ onClose, deckLength, playerHand, enemyHand }) => (
+    disabledCards?: Card[];
+}> = ({ onClose, deck, playerHand, enemyHand, disabledCards = [] }) => (
     <div className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in" onClick={onClose}>
         <div
             className="relative max-w-5xl w-full bg-[#2a1d18] border-[8px] border-[#3e2723] rounded-lg shadow-[0_0_50px_rgba(0,0,0,0.9)] flex flex-col overflow-hidden pixel-corners"
@@ -267,7 +268,7 @@ const DeckTrackerModal: React.FC<{
                     <span>Total: 11</span>
                     <span className="text-[#5d4037]">|</span>
                     <span>
-                        Remaining: <span className="text-[#f3e5ab] font-bold">{deckLength}</span>
+                        Remaining: <span className="text-[#f3e5ab] font-bold">{deck.length}</span>
                     </span>
                 </div>
             </div>
@@ -281,7 +282,8 @@ const DeckTrackerModal: React.FC<{
                         const isPlayerCard = playerHand.some(c => c.rank === rank);
                         const isEnemyVisibleCard = enemyHand?.some(c => c.rank === rank && c.isFaceUp);
                         const isRevealed = isPlayerCard || isEnemyVisibleCard;
-                        const showAsAvailable = !isRevealed;
+                        const isEnvDisabled = disabledCards.some(card => card.rank === rank);
+                        const showAsAvailable = !isRevealed && !isEnvDisabled;
 
                         return (
                             <div key={rank} className="relative group">
@@ -508,9 +510,10 @@ export const Battlefield: React.FC = () => {
             {showDeckView && (
                 <DeckTrackerModal
                     onClose={() => setShowDeckView(false)}
-                    deckLength={gameState.deck.length}
+                    deck={gameState.deck}
                     playerHand={gameState.player.hand}
                     enemyHand={gameState.enemy?.hand}
+                    disabledCards={gameState.environmentDisabledCards}
                 />
             )}
 

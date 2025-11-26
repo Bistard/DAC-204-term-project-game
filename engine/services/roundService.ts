@@ -59,7 +59,7 @@ export class RoundService {
     startRun() {
         const meta = this.deps.getMetaState();
         const deck = createDeck();
-        const envCards = getRandomEnvironment(0);
+        const envCards = getRandomEnvironment(3);
         const penaltyCard = getRandomPenaltyCard();
         const baseState = createInitialGameState(meta);
         const initialState = applyEnvironmentRules({
@@ -111,12 +111,14 @@ export class RoundService {
             }
         }
 
-        const deck = createDeck();
+        const baseDeck = createDeck();
+        const { deck, removed } = this.applyEnvironmentDeckMutators(baseDeck);
         this.deps.store.updateState(
             prev => ({
                 ...prev,
                 deck,
-                discardPile: [],
+                discardPile: removed,
+                environmentDisabledCards: removed,
                 player: { ...prev.player, hand: [], score: 0, shield: 0 },
                 enemy: prev.enemy ? { ...prev.enemy, hand: [], score: 0, shield: 0 } : null,
                 playerStood: false,
@@ -124,7 +126,10 @@ export class RoundService {
                 turnOwner: 'PLAYER',
                 message: 'Dealing hand...',
             }),
-            this.deps.createMeta('round.setup', 'Prepare new round', { round: snapshot.state.roundCount })
+            this.deps.createMeta('round.setup', 'Prepare new round', {
+                round: snapshot.state.roundCount,
+                deckShrink: removed.length,
+            })
         );
 
         await sleep(DELAY_LONG);
@@ -137,6 +142,8 @@ export class RoundService {
 
         await sleep(DELAY_STANDARD);
         this.revealInitialHands();
+
+        await this.applyEnvironmentAutoDraws();
 
         if (snapshot.state.roundCount === 1) {
             await this.grantInitialItems();
@@ -159,8 +166,11 @@ export class RoundService {
         const snapshot = this.deps.store.snapshot;
         const playerHand = snapshot.state.player.hand.map(card => ({ ...card, isFaceUp: true }));
         const enemyHand = snapshot.state.enemy ? snapshot.state.enemy.hand.map(card => ({ ...card, isFaceUp: true })) : [];
-        const playerScore = calculateScore(playerHand, snapshot.state.targetScore);
-        const enemyScore = snapshot.state.enemy ? calculateScore(enemyHand, snapshot.state.targetScore) : 0;
+        const scoreOptions = snapshot.state.environmentRuntime.scoreOptions;
+        const playerScore = calculateScore(playerHand, snapshot.state.targetScore, scoreOptions);
+        const enemyScore = snapshot.state.enemy
+            ? calculateScore(enemyHand, snapshot.state.targetScore, scoreOptions)
+            : 0;
 
         this.deps.store.updateState(
             prev => ({
@@ -175,7 +185,7 @@ export class RoundService {
             active: true,
             playerScore,
             enemyScore,
-            result: this.evaluateClashResult(playerScore, enemyScore, snapshot.state.targetScore),
+            result: this.evaluateClashResult(playerScore, enemyScore, snapshot.state),
         };
         this.deps.eventBus.emit({ type: 'clash.state', payload: clash });
 
@@ -249,7 +259,7 @@ export class RoundService {
                 const hand = entity.hand.map(card =>
                     card.id === cardId ? { ...card, isFaceUp: true } : card
                 );
-                const score = calculateScore(hand, prev.targetScore);
+                const score = calculateScore(hand, prev.targetScore, prev.environmentRuntime.scoreOptions);
                 const card = hand.find(c => c.id === cardId);
                 const message =
                     actor === 'PLAYER'
@@ -280,15 +290,21 @@ export class RoundService {
         this.deps.store.updateState(
             prev => {
                 const playerHand = prev.player.hand.map(card => ({ ...card, isFaceUp: true }));
-                const forcedReveal = this.getForcedRevealCount();
                 const enemyHand = prev.enemy
                     ? prev.enemy.hand.map((card, idx) => {
-                          const shouldReveal = forcedReveal > 0 ? idx < forcedReveal : idx !== 0;
+                          const shouldReveal = idx !== 0;
                           return shouldReveal ? { ...card, isFaceUp: true } : card;
                       })
                     : [];
-                const playerScore = calculateScore(playerHand, prev.targetScore);
-                const enemyScore = prev.enemy ? calculateScore(enemyHand.filter(c => c.isFaceUp), prev.targetScore) : 0;
+                const scoreOptions = prev.environmentRuntime.scoreOptions;
+                const playerScore = calculateScore(playerHand, prev.targetScore, scoreOptions);
+                const enemyScore = prev.enemy
+                    ? calculateScore(
+                          enemyHand.filter(c => c.isFaceUp),
+                          prev.targetScore,
+                          scoreOptions
+                      )
+                    : 0;
                 return {
                     ...prev,
                     player: { ...prev.player, hand: playerHand, score: playerScore },
@@ -373,9 +389,9 @@ export class RoundService {
         }
     }
 
-    private evaluateClashResult(playerScore: number, enemyScore: number, target: number) {
-        const playerBust = playerScore > target;
-        const enemyBust = enemyScore > target;
+    private evaluateClashResult(playerScore: number, enemyScore: number, state: GameState) {
+        const playerBust = this.isBust(playerScore, state);
+        const enemyBust = this.isBust(enemyScore, state);
         if (playerBust && enemyBust) return 'draw';
         if (playerBust) return 'enemy_win';
         if (enemyBust) return 'player_win';
@@ -388,8 +404,8 @@ export class RoundService {
         const snapshot = this.deps.store.snapshot;
         const playerScore = snapshot.state.player.score;
         const enemyScore = snapshot.state.enemy?.score ?? 0;
-        const playerBust = playerScore > snapshot.state.targetScore;
-        const enemyBust = snapshot.state.enemy ? enemyScore > snapshot.state.targetScore : false;
+        const playerBust = this.isBust(playerScore, snapshot.state);
+        const enemyBust = snapshot.state.enemy ? this.isBust(enemyScore, snapshot.state) : false;
 
         const winner: TurnOwner | 'DRAW' =
             playerBust && enemyBust
@@ -470,15 +486,23 @@ export class RoundService {
             this.applyHealing('ENEMY', penaltyOutcome.enemyHeal);
         }
 
+        this.enforceSuddenDeath();
+
         this.clearRoundModifiers('round.resolved', true);
         const playerDead = this.deps.store.snapshot.state.player.hp <= 0;
         const enemyDead = this.deps.store.snapshot.state.enemy?.hp <= 0;
 
-        if (
-            result === 'player_win' &&
-            snapshot.state.player.score === snapshot.state.targetScore
-        ) {
+        const playerPerfect = !playerBust && playerScore === snapshot.state.targetScore;
+        const enemyPerfect = snapshot.state.enemy ? !enemyBust && enemyScore === snapshot.state.targetScore : false;
+
+        if (result === 'player_win' && playerPerfect) {
             this.deps.rewardService.applyEventTrigger('PERFECT_SCORE');
+        }
+        if (playerPerfect) {
+            this.deps.rewardService.applyEnvironmentPerfectReward('PLAYER');
+        }
+        if (enemyPerfect) {
+            this.deps.rewardService.applyEnvironmentPerfectReward('ENEMY');
         }
 
         this.deps.store.updateState(
@@ -639,8 +663,10 @@ export class RoundService {
     }
 
     applyDamage(target: TurnOwner, amount: number): number {
-        const multiplier = this.getDamageMultiplier(target);
-        const finalAmount = Math.ceil(amount * multiplier);
+        const runtime = this.deps.store.snapshot.state.environmentRuntime;
+        const baseDamage = amount > 0 ? runtime.damageModifiers.baseDamage : 0;
+        const scaledAmount = (amount + baseDamage) * (runtime.damageModifiers.multiplier || 1);
+        const finalAmount = Math.max(0, Math.ceil(scaledAmount));
         let blocked = 0;
         let inflicted = 0;
         this.deps.store.updateState(
@@ -753,33 +779,81 @@ export class RoundService {
         );
     }
 
-    private getForcedRevealCount() {
-        let forced = 0;
-        this.deps.store.snapshot.state.activeEnvironment.forEach(card => {
-            card.effects.forEach(effect => {
-                if (effect.type === 'FORCE_REVEAL') {
-                    const visible = Number(effect.metadata?.visibleCards ?? effect.amount ?? 0);
-                    forced = Math.max(forced, visible);
-                }
-            });
-        });
-        return forced;
+    private isBust(score: number, state: GameState) {
+        const specialBustValues = state.environmentRuntime.scoreOptions.specialBustValues;
+        if (specialBustValues.includes(score)) {
+            return true;
+        }
+        return score > state.targetScore;
     }
 
-    private getDamageMultiplier(target: TurnOwner) {
-        let multiplier = 1;
-        this.deps.store.snapshot.state.activeEnvironment.forEach(card => {
-            card.effects.forEach(effect => {
-                if (effect.type !== 'DAMAGE_MULTIPLIER') return;
-                if (effect.scope === 'BOTH') {
-                    multiplier *= effect.amount ?? 1;
-                } else if (effect.scope === 'SELF' && target === 'PLAYER') {
-                    multiplier *= effect.amount ?? 1;
-                } else if (effect.scope === 'OPPONENT' && target === 'ENEMY') {
-                    multiplier *= effect.amount ?? 1;
+    private applyEnvironmentDeckMutators(deck: Card[]) {
+        const removals = this.deps.store.snapshot.state.environmentRuntime.deckMutators.randomRemovalsPerRound;
+        if (removals <= 0) {
+            return { deck, removed: [] as Card[] };
+        }
+        const nextDeck = [...deck];
+        const removed: Card[] = [];
+        for (let i = 0; i < removals && nextDeck.length > 0; i++) {
+            const index = Math.floor(Math.random() * nextDeck.length);
+            const [card] = nextDeck.splice(index, 1);
+            if (card) removed.push(card);
+        }
+        return { deck: nextDeck, removed };
+    }
+
+    private async applyEnvironmentAutoDraws() {
+        const autoDraw = this.deps.store.snapshot.state.environmentRuntime.drawHooks.autoDrawPerActor;
+        if (autoDraw <= 0) return;
+        const actors: TurnOwner[] = ['PLAYER', 'ENEMY'];
+        for (let cycle = 0; cycle < autoDraw; cycle++) {
+            for (const actor of actors) {
+                const drawn = await this.drawCard(actor, {
+                    faceDown: true,
+                    shiftTurn: false,
+                    preserveStandState: true,
+                });
+                if (!drawn) continue;
+                this.setDealing(true);
+                await sleep(DELAY_MEDIUM);
+                this.revealCard(actor, drawn.cardId, { shiftTurn: false });
+                this.setDealing(false);
+            }
+        }
+        this.deps.store.updateState(
+            prev => ({ ...prev }),
+            this.deps.createMeta('round.autoDraw', 'Environment auto hits applied', { count: autoDraw })
+        );
+    }
+
+    private enforceSuddenDeath() {
+        const threshold = this.deps.store.snapshot.state.environmentRuntime.victoryHooks.suddenDeathThreshold;
+        if (!threshold) return;
+        const victims: TurnOwner[] = [];
+        this.deps.store.updateState(
+            prev => {
+                let player = prev.player;
+                let enemy = prev.enemy;
+                let changed = false;
+                if (player.hp > 0 && player.hp <= threshold) {
+                    player = { ...player, hp: 0 };
+                    victims.push('PLAYER');
+                    changed = true;
                 }
-            });
-        });
-        return multiplier;
+                if (enemy && enemy.hp > 0 && enemy.hp <= threshold) {
+                    enemy = { ...enemy, hp: 0 };
+                    victims.push('ENEMY');
+                    changed = true;
+                }
+                if (!changed) return prev;
+                return {
+                    ...prev,
+                    player,
+                    enemy,
+                    message: `Sudden death triggered (<=${threshold} HP).`,
+                };
+            },
+            this.deps.createMeta('env.suddenDeath', 'Sudden death enforced', { victims, threshold })
+        );
     }
 }

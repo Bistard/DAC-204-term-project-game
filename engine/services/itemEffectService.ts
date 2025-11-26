@@ -159,12 +159,13 @@ export class ItemEffectService {
                 const currentEntity = actor === 'PLAYER' ? prev.player : prev.enemy;
                 if (!currentEntity || prev.deck.length === 0) return prev;
                 const deck = [...prev.deck];
+                const scoreOptions = prev.environmentRuntime.scoreOptions;
                 let bestIndex = -1;
                 let bestDiff = Number.POSITIVE_INFINITY;
                 let bestScore = -Infinity;
                 deck.forEach((card, index) => {
                     const simulatedHand = [...currentEntity.hand, card];
-                    const simulatedScore = calculateScore(simulatedHand, prev.targetScore);
+                    const simulatedScore = calculateScore(simulatedHand, prev.targetScore, scoreOptions);
                     const diff = Math.abs(prev.targetScore - simulatedScore);
                     const candidateIsBust = simulatedScore > prev.targetScore;
                     const bestIsBust = bestScore > prev.targetScore;
@@ -182,7 +183,7 @@ export class ItemEffectService {
                 const [picked] = deck.splice(bestIndex, 1);
                 const nextCard: Card = { ...picked, isFaceUp: true };
                 const hand = [...currentEntity.hand, nextCard];
-                const score = calculateScore(hand, prev.targetScore);
+                const score = calculateScore(hand, prev.targetScore, scoreOptions);
                 const entityKey = actor === 'PLAYER' ? 'player' : 'enemy';
                 const updatedEntity = { ...currentEntity, hand, score };
                 return {
@@ -210,7 +211,7 @@ export class ItemEffectService {
                 const [picked] = deck.splice(index, 1);
                 const nextCard: Card = { ...picked, isFaceUp: true };
                 const hand = [...entity.hand, nextCard];
-                const score = calculateScore(hand, prev.targetScore);
+                const score = calculateScore(hand, prev.targetScore, prev.environmentRuntime.scoreOptions);
                 return {
                     ...prev,
                     deck,
@@ -234,8 +235,9 @@ export class ItemEffectService {
                 if (!playerCard || !enemyCard) return prev;
                 playerHand.push(enemyCard);
                 enemyHand.push(playerCard);
-                const playerScore = calculateScore(playerHand, prev.targetScore);
-                const enemyScore = calculateScore(enemyHand, prev.targetScore);
+                const scoreOptions = prev.environmentRuntime.scoreOptions;
+                const playerScore = calculateScore(playerHand, prev.targetScore, scoreOptions);
+                const enemyScore = calculateScore(enemyHand, prev.targetScore, scoreOptions);
                 return {
                     ...prev,
                     player: { ...prev.player, hand: playerHand, score: playerScore },
@@ -261,7 +263,7 @@ export class ItemEffectService {
                 const hand = [...entity.hand];
                 const removed = hand.pop()!;
                 const deck = this.insertCardRandomly(prev.deck, { ...removed, isFaceUp: false });
-                const score = calculateScore(hand, prev.targetScore);
+                const score = calculateScore(hand, prev.targetScore, prev.environmentRuntime.scoreOptions);
                 return {
                     ...prev,
                     deck,
@@ -293,7 +295,7 @@ export class ItemEffectService {
                 if (!newCard) return prev;
                 const nextCard: Card = { ...newCard, isFaceUp: true };
                 hand.push(nextCard);
-                const score = calculateScore(hand, prev.targetScore);
+                const score = calculateScore(hand, prev.targetScore, prev.environmentRuntime.scoreOptions);
                 return {
                     ...prev,
                     deck,
@@ -468,14 +470,14 @@ export class ItemEffectService {
     private applyInventoryHeal(effect: LogicEffectConfig, actor: TurnOwner) {
         const perItemRaw = Number(effect.metadata?.perItem ?? 1);
         const perItem = Number.isFinite(perItemRaw) ? perItemRaw : 1;
-        const flatRaw = Number(effect.metadata?.flatBonus ?? 0);
-        const flatBonus = Number.isFinite(flatRaw) ? flatRaw : 0;
+        const baseRaw = Number(effect.metadata?.baseDamage ?? 0);
+        const baseDamage = Number.isFinite(baseRaw) ? baseRaw : 0;
         const targets = this.resolveTargets(actor, effect.scope);
         const snapshot = this.deps.store.snapshot;
         targets.forEach(target => {
             const entity = target === 'PLAYER' ? snapshot.state.player : snapshot.state.enemy;
             if (!entity) return;
-            const amount = Math.floor(entity.inventory.length * perItem + flatBonus);
+            const amount = Math.floor(entity.inventory.length * perItem + baseDamage);
             if (amount <= 0) return;
             this.applyHeal(
                 {

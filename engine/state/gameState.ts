@@ -9,6 +9,7 @@ import {
     RoundModifierState,
     RuntimeFlags,
 } from '../../common/types';
+import { cloneEnvironmentRuntime, createEmptyEnvironmentRuntime } from '../rules/environmentRuleEngine';
 
 export const createDefaultRoundModifiers = (): RoundModifierState => ({
     damageAdjustments: { PLAYER: 0, ENEMY: 0 },
@@ -32,6 +33,7 @@ export const createInitialGameState = (metaState: MetaState): GameState => ({
     roundCount: 0,
     runLevel: 1,
     activeEnvironment: [],
+    environmentRuntime: createEmptyEnvironmentRuntime(),
     activePenalty: null,
     player: {
         hp: STARTING_HP + metaState.upgrades.hpLevel,
@@ -46,6 +48,7 @@ export const createInitialGameState = (metaState: MetaState): GameState => ({
     enemy: null,
     deck: [],
     discardPile: [],
+    environmentDisabledCards: [],
     roundModifiers: createDefaultRoundModifiers(),
     penaltyRuntime: createDefaultPenaltyRuntime(),
     message: 'Welcome to Last Hand',
@@ -85,6 +88,7 @@ export const cloneGameState = (state: GameState): GameState => ({
         lastWinner: state.penaltyRuntime.lastWinner,
         consecutiveWins: { ...state.penaltyRuntime.consecutiveWins },
     },
+    environmentRuntime: cloneEnvironmentRuntime(state.environmentRuntime),
     player: {
         ...state.player,
         hand: state.player.hand.map(card => ({ ...card })),
@@ -99,6 +103,7 @@ export const cloneGameState = (state: GameState): GameState => ({
         : null,
     deck: state.deck.map(card => ({ ...card })),
     discardPile: state.discardPile.map(card => ({ ...card })),
+    environmentDisabledCards: state.environmentDisabledCards.map(card => ({ ...card })),
 });
 
 export const applyEnemyUpdate = (

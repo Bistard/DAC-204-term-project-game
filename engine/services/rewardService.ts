@@ -9,7 +9,7 @@ import {
 import { EVENT_EFFECTS, GameEventTrigger } from '../../content/events';
 import { EventBus } from '../eventBus';
 import { GameStore } from '../state/gameStore';
-import { GamePhase, Item, LogicEffectConfig, MetaState, StoreUpdateMeta } from '../../common/types';
+import { GamePhase, Item, LogicEffectConfig, MetaState, StoreUpdateMeta, TurnOwner } from '../../common/types';
 import {
     getRandomEnemy,
     getRandomEnvironment,
@@ -166,6 +166,31 @@ export class RewardService {
         EVENT_EFFECTS.filter(evt => evt.trigger === trigger).forEach(evt => {
             evt.effects.forEach(effect => this.applyEventEffect(effect));
         });
+    }
+
+    applyEnvironmentPerfectReward(actor: TurnOwner) {
+        const drawCount = this.store.snapshot.state.environmentRuntime.rewardHooks.perfectItemDraw;
+        if (drawCount <= 0) return;
+        this.store.updateState(
+            prev => {
+                const entityKey = actor === 'PLAYER' ? 'player' : 'enemy';
+                const entity = prev[entityKey];
+                if (!entity) return prev;
+                const slots = entity.maxInventory - entity.inventory.length;
+                if (slots <= 0) return prev;
+                const grant = Math.min(drawCount, slots);
+                const newItems = getRandomItems(grant);
+                return {
+                    ...prev,
+                    [entityKey]: {
+                        ...entity,
+                        inventory: [...entity.inventory, ...newItems],
+                    },
+                    message: `${actor === 'PLAYER' ? 'You' : 'Enemy'} gained ${grant} item card${grant > 1 ? 's' : ''} for a Perfect.`,
+                };
+            },
+            this.meta('reward.envPerfect', 'Environment perfect reward granted', { actor, amount: drawCount })
+        );
     }
 
     private applyEventEffect(effect: LogicEffectConfig) {

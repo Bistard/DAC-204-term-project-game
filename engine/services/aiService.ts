@@ -44,7 +44,8 @@ export class AiService {
         const snapshot = this.deps.store.snapshot;
         const enemy = snapshot.state.enemy;
         if (!enemy) return;
-        const trueScore = calculateScore(enemy.hand, snapshot.state.targetScore);
+        const scoreOptions = snapshot.state.environmentRuntime.scoreOptions;
+        const trueScore = calculateScore(enemy.hand, snapshot.state.targetScore, scoreOptions);
         let shouldHit = false;
         switch (enemy.aiType) {
             case 'GREEDY':
@@ -58,7 +59,10 @@ export class AiService {
                 shouldHit = trueScore < snapshot.state.targetScore - 6 ? true : Math.random() > 0.5;
                 break;
         }
-        if (trueScore >= snapshot.state.targetScore) shouldHit = false;
+        const wouldBust =
+            trueScore >= snapshot.state.targetScore ||
+            scoreOptions.specialBustValues.includes(trueScore);
+        if (wouldBust) shouldHit = false;
         if (shouldHit) await this.deps.onHit();
         else this.deps.onStand();
     }

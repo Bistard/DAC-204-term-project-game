@@ -69,11 +69,63 @@ export interface Item extends ItemDefinition {
     instanceId: string;
 }
 
+export type EnvironmentRuleType =
+    | 'TARGET_RANDOMIZE'
+    | 'DAMAGE_FLAT_MODIFIER'
+    | 'SUDDEN_DEATH_THRESHOLD'
+    | 'DECK_SHRINK'
+    | 'PERFECT_REWARD_ITEM'
+    | 'ROUND_START_AUTO_DRAW'
+    | 'ACE_VALUE_MODE'
+    | 'ITEM_USAGE_LOCK'
+    | 'SPECIAL_BUST_VALUES';
+
+export interface EnvironmentRule {
+    id: string;
+    type: EnvironmentRuleType;
+    metadata?: Record<string, number | string | boolean | number[] | string[]>;
+}
+
 export interface EnvironmentCard {
     id: string;
     name: string;
     description: string;
-    effects: LogicEffectConfig[];
+    rules: EnvironmentRule[];
+    incompatibleWith?: string[];
+}
+
+export interface ScoreOptions {
+    aceMode: 'FLEXIBLE' | 'ALWAYS_HIGH';
+    specialBustValues: number[];
+}
+
+export interface EnvironmentRuntimeState {
+    appliedCardIds: string[];
+    targetRule?: {
+        value: number;
+        sourceCardId: string;
+        label?: string;
+    };
+    scoreOptions: ScoreOptions;
+    deckMutators: {
+        randomRemovalsPerRound: number;
+    };
+    drawHooks: {
+        autoDrawPerActor: number;
+    };
+    rewardHooks: {
+        perfectItemDraw: number;
+    };
+    damageModifiers: {
+        baseDamage: number;
+        multiplier: number; // unused
+    };
+    itemLocks: {
+        disableUsage: boolean;
+    };
+    victoryHooks: {
+        suddenDeathThreshold?: number;
+    };
 }
 
 export interface PenaltyRuntimeState {
@@ -169,6 +221,7 @@ export interface GameState {
     roundCount: number;
     runLevel: number;
     activeEnvironment: EnvironmentCard[];
+    environmentRuntime: EnvironmentRuntimeState;
     activePenalty: PenaltyCard | null;
     player: Entity & {
         inventory: Item[];
@@ -178,6 +231,7 @@ export interface GameState {
     enemy: Enemy | null;
     deck: Card[];
     discardPile: Card[];
+    environmentDisabledCards: Card[];
     roundModifiers: RoundModifierState;
     penaltyRuntime: PenaltyRuntimeState;
     message: string;

@@ -9,26 +9,31 @@ import {
     EnemyTemplate,
     GameState,
     PenaltyCard,
+    ScoreOptions,
 } from '../common/types';
 import { ITEM_DEFINITIONS, PRECISION_PULL_VALUES, TARGET_OVERRIDE_VALUES } from '../content/items';
 import { ENEMY_TEMPLATES } from '../content/enemies';
 import { ENVIRONMENT_CARDS } from '../content/environments';
 import { PENALTY_CARDS } from '../content/penalties';
 import { ACE_VALUE, ACE_ADJUSTMENT, HP_SCALING_PER_LEVEL, MAX_INVENTORY_SLOTS, TARGET_SCORE } from '../common/constants';
+import { buildEnvironmentRuntime } from './rules/environmentRuleEngine';
 
 export const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
-export const calculateScore = (hand: Card[], target: number = 21): number => {
+export const calculateScore = (hand: Card[], target: number = TARGET_SCORE, options?: ScoreOptions): number => {
     let score = 0;
     let aces = 0;
     hand.forEach(card => {
         score += card.value;
         if (card.isAce) aces += 1;
     });
-    // Reduce aces from 11 to 1 if over target
-    while (score > target && aces > 0) {
-        score -= ACE_ADJUSTMENT;
-        aces -= 1; 
+    const aceMode = options?.aceMode ?? 'FLEXIBLE';
+    if (aceMode !== 'ALWAYS_HIGH') {
+        // Reduce aces from 11 to 1 if over target
+        while (score > target && aces > 0) {
+            score -= ACE_ADJUSTMENT;
+            aces -= 1;
+        }
     }
     return score;
 };
@@ -128,9 +133,37 @@ export const createItemById = (id: string): Item | null => {
     return instantiateItem(template);
 };
 
+const areEnvironmentCardsCompatible = (a: EnvironmentCard, b: EnvironmentCard) => {
+    const aConflicts = a.incompatibleWith ?? [];
+    const bConflicts = b.incompatibleWith ?? [];
+    return !aConflicts.includes(b.id) && !bConflicts.includes(a.id);
+};
+
 export const getRandomEnvironment = (count: number): EnvironmentCard[] => {
-    const shuffled = [...ENVIRONMENT_CARDS].sort(() => 0.5 - Math.random());
-    return shuffled.slice(0, count);
+    if (count <= 0) return [];
+    const pool = [...ENVIRONMENT_CARDS];
+    let bestSelection: EnvironmentCard[] = [];
+    const MAX_ATTEMPTS = 50;
+
+    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+        const shuffled = [...pool].sort(() => Math.random() - 0.5);
+        const pick: EnvironmentCard[] = [];
+        for (const card of shuffled) {
+            if (pick.length >= count) break;
+            const compatible = pick.every(existing => areEnvironmentCardsCompatible(existing, card));
+            if (compatible) {
+                pick.push(card);
+            }
+        }
+        if (pick.length === count) {
+            return pick;
+        }
+        if (pick.length > bestSelection.length) {
+            bestSelection = pick;
+        }
+    }
+
+    return bestSelection;
 };
 
 export const getRandomPenaltyCard = (): PenaltyCard => {
@@ -169,19 +202,12 @@ export const getRandomEnemy = (level: number): Enemy => {
  * CombatService and RewardService can stay in sync.
  */
 export const applyEnvironmentRules = (state: GameState): GameState => {
-    let targetScore = state.baseTargetScore ?? state.targetScore ?? TARGET_SCORE;
-    if (state.activeEnvironment.length > 0) {
-        state.activeEnvironment.forEach(card => {
-            card.effects.forEach(effect => {
-                if (effect.type === 'SET_TARGET_SCORE' && typeof effect.amount === 'number') {
-                    targetScore = effect.amount;
-                }
-            });
-        });
-    }
+    const runtime = buildEnvironmentRuntime(state.activeEnvironment ?? []);
+    const targetScore = runtime.targetRule?.value ?? TARGET_SCORE;
     return {
         ...state,
         baseTargetScore: targetScore,
         targetScore,
+        environmentRuntime: runtime,
     };
 };

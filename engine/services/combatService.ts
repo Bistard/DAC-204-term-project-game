@@ -101,6 +101,7 @@ export class CombatService {
         const snapshot = this.store.snapshot;
         if (snapshot.flags.isDealing || snapshot.state.phase !== GamePhase.BATTLE) return;
         if (snapshot.state.turnOwner !== actor) return;
+        if (snapshot.state.environmentRuntime.itemLocks.disableUsage) return;
         const entity = actor === 'PLAYER' ? snapshot.state.player : snapshot.state.enemy;
         if (!entity || !entity.inventory[index]) return;
         const item = entity.inventory[index];

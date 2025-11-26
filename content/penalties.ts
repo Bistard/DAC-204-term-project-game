@@ -28,7 +28,7 @@ export const PENALTY_CARDS: PenaltyCard[] = [
     {
         id: 'scaling_per_round',
         name: 'Scaling Per Round',
-        description: 'Base damage to loser is 1. Each round increases by +1.',
+        description: 'Base damage to loser is 1. Each round +1.',
         damageFunction: context => {
             if (context.winner === 'DRAW' || !context.loser) {
                 return noDamage();
