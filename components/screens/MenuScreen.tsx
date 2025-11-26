@@ -83,6 +83,40 @@ const Bird: React.FC<{ top: string; left: string; duration: string; delay: strin
     </div>
 );
 
+const PixelGrass: React.FC<{ left: string; bottom: string; isNight: boolean; scale?: number }> = ({ left, bottom, isNight, scale = 1 }) => (
+    <div 
+        className={`absolute flex items-end gap-[2px] opacity-80 transition-colors duration-[3000ms] ${isNight ? 'text-[#1a110d]' : 'text-[#78350f]'}`} 
+        style={{ left, bottom, transform: `scale(${scale})` }}
+    >
+        <div className="w-1 h-2 bg-current"></div>
+        <div className="w-1 h-3 bg-current"></div>
+        <div className="w-1 h-1.5 bg-current"></div>
+    </div>
+);
+
+const PixelStone: React.FC<{ left: string; bottom: string; scale?: number; isNight: boolean }> = ({ left, bottom, scale = 1, isNight }) => (
+    <div 
+        className={`absolute transition-colors duration-[3000ms] ${isNight ? 'bg-[#1a110d]' : 'bg-[#451a03]'}`} 
+        style={{ left, bottom, width: `${8 * scale}px`, height: `${4 * scale}px` }}
+    >
+        <div className={`absolute top-0 right-0 w-1/2 h-1/2 transition-colors duration-[3000ms] ${isNight ? 'bg-[#271c19]' : 'bg-[#5d4037]'}`}></div>
+    </div>
+);
+
+const PixelBarrel: React.FC<{ left?: string; right?: string; bottom: string; isNight: boolean; scale?: number }> = ({ left, right, bottom, isNight, scale = 1 }) => (
+     <div className="absolute z-10 flex flex-col items-center w-5 origin-bottom" style={{ left, right, bottom, transform: `scale(${scale})` }}>
+         {/* Top Rim */}
+         <div className={`w-full h-1 bg-[#1a110d]`}></div>
+         {/* Body */}
+         <div className={`w-[90%] h-6 transition-colors duration-[3000ms] ${isNight ? 'bg-[#271c19]' : 'bg-[#5d4037]'} relative flex flex-col justify-center gap-2 border-l border-r border-black/30`}>
+             <div className="w-full h-0.5 bg-black/50"></div>
+             <div className="w-full h-0.5 bg-black/50"></div>
+         </div>
+         {/* Bottom Rim */}
+         <div className={`w-full h-1 bg-[#1a110d]`}></div>
+     </div>
+);
+
 const saloonPosition = 20;
 const Saloon: React.FC<{ isNight: boolean; }> = ({ isNight }) => {
     // Colors
@@ -219,6 +253,10 @@ const Saloon: React.FC<{ isNight: boolean; }> = ({ isNight }) => {
                 {/* Stairs */}
                 <div className="w-48 h-2 bg-[#271c19] mt-0.5"></div>
                 <div className="w-48 h-2 bg-[#3e2723]"></div>
+
+                {/* Barrels on Porch */}
+                <PixelBarrel left="10px" bottom="20px" isNight={isNight} scale={0.9} />
+                <PixelBarrel right="15px" bottom="20px" isNight={isNight} scale={0.9} />
 
                 {/* Ground Shadow underneath */}
                 <div className="absolute -bottom-2 w-72 h-4 bg-black/40 blur-sm rounded-[100%]"></div>
@@ -498,6 +536,24 @@ export const MenuScreen: React.FC = () => {
                 {/* 4. Closer Dunes/Ground (Parallax Layer 2) */}
                 <div className={`absolute bottom-0 left-0 right-0 h-[25%] border-t-4 border-[#271c19] ${transitionClass} ${isNight ? 'bg-[#3e2723]' : 'bg-[#d97706]'}`}>
                     <div className="absolute inset-0 opacity-20 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPgo8cmVjdCB3aWR0aD0iMSIgaGVpZ2h0PSIxIiBmaWxsPSIjMDAwIiBvcGFjaXR5PSIwLjMiLz48L3N2Zz4=')]"></div>
+                    
+                    {/* Ground Details - Grass Tufts */}
+                    <PixelGrass left="5%" bottom="60%" isNight={isNight} />
+                    <PixelGrass left="12%" bottom="40%" isNight={isNight} scale={1.2} />
+                    <PixelGrass left="25%" bottom="70%" isNight={isNight} scale={0.8} />
+                    <PixelGrass left="60%" bottom="50%" isNight={isNight} />
+                    <PixelGrass left="75%" bottom="30%" isNight={isNight} scale={1.5} />
+                    <PixelGrass left="90%" bottom="65%" isNight={isNight} />
+
+                    {/* Ground Details - Stones */}
+                    <PixelStone left="8%" bottom="35%" isNight={isNight} />
+                    <PixelStone left="22%" bottom="60%" isNight={isNight} scale={1.5} />
+                    <PixelStone left="65%" bottom="40%" isNight={isNight} scale={0.8} />
+                    <PixelStone left="85%" bottom="25%" isNight={isNight} scale={1.2} />
+
+                    {/* Ground Details - Extra Barrel */}
+                    <PixelBarrel left="40%" bottom="40%" isNight={isNight} scale={0.8} />
+
                     {/* Cacti - Silhouette is always dark/blackish */}
                     <div className="absolute bottom-full left-[10%] w-4 h-12 bg-[#271c19]">
                         <div className="absolute bottom-4 -left-3 w-3 h-1 bg-[#271c19]"></div>
