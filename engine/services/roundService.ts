@@ -3,6 +3,7 @@ import {
     DAMAGE_BUST_PLAYER,
     DELAY_LONG,
     DELAY_MEDIUM,
+    DELAY_SHORT,
     DELAY_STANDARD,
     DELAY_TURN_END,
     DELAY_XL,
@@ -145,8 +146,11 @@ export class RoundService {
 
         await this.applyEnvironmentAutoDraws();
 
-        if (snapshot.state.roundCount === 1) {
-            await this.grantInitialItems();
+        // level 1, round 1
+        if (snapshot.state.runLevel === 1 && snapshot.state.roundCount === 1) {
+            await this.dealInitialItems(true);
+        } else if (snapshot.state.roundCount === 1) {
+            await this.dealInitialItems(false);
         }
 
         await sleep(DELAY_MEDIUM);
@@ -316,21 +320,28 @@ export class RoundService {
         );
     }
 
-    private async grantInitialItems() {
+    private async dealInitialItems(firstLevel: boolean) {
         const snapshot = this.deps.store.snapshot;
-        if (!snapshot.state.enemy) return;
-        const playerItems = INIT_ITEM_CARD + this.deps.getMetaState().upgrades.inventoryLevel;
-        const sequences: Array<{ actor: TurnOwner; count: number }> = [
-            { actor: 'ENEMY', count: INIT_ITEM_CARD },
-            { actor: 'PLAYER', count: playerItems },
+        if (!snapshot.state.enemy) {
+            return;
+        }
+        
+        const enemyAdditionalItems = INIT_ITEM_CARD;
+        const playerAdditionalItems = firstLevel 
+            ? INIT_ITEM_CARD + this.deps.getMetaState().upgrades.inventoryLevel 
+            : 0;
+        
+        const players = [
+            { actor: 'ENEMY', count: enemyAdditionalItems },
+            { actor: 'PLAYER', count: playerAdditionalItems },
         ];
 
-        for (const seq of sequences) {
-            for (let i = 0; i < seq.count; i++) {
-                await sleep(400);
+        for (const player of players) {
+            for (let i = 0; i < player.count; i++) {
+                await sleep(DELAY_SHORT);
                 this.deps.store.updateState(
                     prev => {
-                        const entityKey = seq.actor === 'PLAYER' ? 'player' : 'enemy';
+                        const entityKey = player.actor === 'PLAYER' ? 'player' : 'enemy';
                         const entity = prev[entityKey]!;
                         if (entity.inventory.length >= entity.maxInventory) return prev;
                         return {
@@ -341,7 +352,7 @@ export class RoundService {
                             },
                         };
                     },
-                    this.deps.createMeta('item.grant', `Granted item to ${seq.actor}`, { actor: seq.actor })
+                    this.deps.createMeta('item.grant', `Granted item to ${player.actor}`, { actor: player.actor })
                 );
             }
         }
