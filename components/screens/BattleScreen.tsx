@@ -1,3 +1,4 @@
+
 import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { EyeOff, Zap, CheckCircle, Search, X, Swords, Book, Coins, PenTool, Trash2 } from 'lucide-react';
 import { PlayerHand } from '../PlayerHand';
@@ -7,6 +8,7 @@ import { Button } from '../ui/Button';
 import { CardComponent } from '../cards/card';
 import { EnvironmentCardDisplay } from '../cards/EnvironmentCard';
 import { PenaltyCardDisplay } from '../cards/penaltyCard';
+import { Draggable } from '../ui/draggable';
 import { useGame } from '../../context/GameContext';
 import { calculateScore } from '../../engine/utils';
 import { ITEMS } from '../../content/items';
@@ -15,7 +17,7 @@ import { VISUAL_WARN_OFFSET, VISUAL_SAFE_OFFSET, VISUAL_EARLY_OFFSET } from '../
 import { Card, DamageNumber, EnvironmentCard, Item, PenaltyCard, Suit, TurnOwner } from '../../common/types';
 import { PENALTY_CARDS } from '@/content/penalties';
 
-const getFanStyle = (index: number, total: number, isPlayer: boolean, isHovered: boolean): React.CSSProperties => {
+const getFanStyle = (index: number, total: number, isPlayer: boolean, isHovered: boolean, isDragging: boolean): React.CSSProperties => {
     const center = (total - 1) / 2;
     const offset = index - center;
     const rotate = offset * 6;
@@ -25,12 +27,12 @@ const getFanStyle = (index: number, total: number, isPlayer: boolean, isHovered:
     return {
         position: 'absolute',
         left: '50%',
-        transform: `translateX(calc(-50% + ${x}px)) translateY(${y}px) rotate(${isPlayer ? rotate : -rotate}deg) ${isHovered ? 'scale(1.15) translateY(-20px)' : ''}`,
+        transform: `translateX(calc(-50% + ${x}px)) translateY(${y}px) rotate(${isPlayer ? rotate : -rotate}deg) ${isHovered && !isDragging ? 'scale(1.15) translateY(-20px)' : ''}`,
         transformOrigin: isPlayer ? 'center 120%' : 'center -120%',
-        zIndex: isHovered ? 100 : index,
+        zIndex: isDragging ? 200 : (isHovered ? 100 : index),
         bottom: isPlayer ? '0px' : 'auto',
         top: isPlayer ? 'auto' : '0px',
-        transition: 'transform 0.2s ease-out, z-index 0s',
+        transition: isDragging ? 'none' : 'transform 0.2s ease-out, z-index 0s',
     };
 };
 
@@ -175,7 +177,7 @@ const EnvironmentAnimation: React.FC<{
     );
 };
 
-const ClashOverlay: React.FC<{ clashState: ReturnType<typeof useGame>['clashState'] }> = ({ clashState }) => {
+const ClashOverlay: React.FC<{ clashState: ReturnType<typeof useGame>['clashState']; targetScore: number }> = ({ clashState, targetScore }) => {
     if (!clashState.active) return null;
     return (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm transition-all duration-300">
@@ -200,7 +202,7 @@ const ClashOverlay: React.FC<{ clashState: ReturnType<typeof useGame>['clashStat
                             : clashState.result === 'enemy_win' ? 'animate-winner-pulse-red text-red-500 drop-shadow-[0_0_20px_rgba(239,68,68,0.8)]' : 'text-red-200'}
                         `}>
                         {clashState.enemyScore}
-                        {clashState.enemyScore > clashState.targetScore && (
+                        {clashState.enemyScore > targetScore && (
                             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 -rotate-12 border-4 border-red-800 text-red-800 text-4xl font-black px-4 py-1 opacity-0 animate-stamp-pop bg-red-950/80 whitespace-nowrap">
                                 BUSTED
                             </div>
@@ -224,7 +226,7 @@ const ClashOverlay: React.FC<{ clashState: ReturnType<typeof useGame>['clashStat
                             : clashState.result === 'player_win' ? 'animate-winner-pulse-amber text-amber-400 drop-shadow-[0_0_20px_rgba(251,191,36,0.8)]' : 'text-amber-200'}
                         `}>
                         {clashState.playerScore}
-                        {clashState.playerScore > clashState.targetScore && (
+                        {clashState.playerScore > targetScore && (
                             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 -rotate-12 border-4 border-red-800 text-red-800 text-4xl font-black px-4 py-1 opacity-0 animate-stamp-pop bg-red-950/80 whitespace-nowrap">
                                 BUSTED
                             </div>
@@ -572,10 +574,15 @@ export const Battlefield: React.FC = () => {
 
     const [hoveredHandIndex, setHoveredHandIndex] = useState<number | null>(null);
     const [hoveredInventoryIndex, setHoveredInventoryIndex] = useState<number | null>(null);
+    
+    // Track dragging to adjust z-index
+    const [draggingHandIndex, setDraggingHandIndex] = useState<number | null>(null);
+    const [draggingInventoryIndex, setDraggingInventoryIndex] = useState<number | null>(null);
+
     const [showDeckView, setShowDeckView] = useState(false);
     const [showItemCompendium, setShowItemCompendium] = useState(false);
     const [showSketch, setShowSketch] = useState(false);
-    const [compendiumTab, setCompendiumTab] = useState<'ITEMS' | 'ENV'>('ITEMS');
+    const [compendiumTab, setCompendiumTab] = useState<'ITEMS' | 'ENV' | 'PENALTY'>('ITEMS');
     const [goldAnim, setGoldAnim] = useState('');
     const [fadeOutItem, setFadeOutItem] = useState(false);
 
@@ -627,7 +634,7 @@ export const Battlefield: React.FC = () => {
             <ActiveItemOverlay effect={activeItemEffect} fadeOut={fadeOutItem} />
             <PenaltyAnimation animatingPenaltyCard={animatingPenaltyCard} />
             <EnvironmentAnimation animatingEnvCard={animatingEnvCard} />
-            <ClashOverlay clashState={clashState} />
+            <ClashOverlay clashState={clashState} targetScore={gameState.targetScore} />
 
             <SketchOverlay isOpen={showSketch} onClose={() => setShowSketch(false)} />
 
@@ -652,7 +659,6 @@ export const Battlefield: React.FC = () => {
                             <PenaltyCardDisplay
                                 card={gameState.activePenalty}
                                 runtime={gameState.penaltyRuntime}
-                                damagePreview={gameState.penaltyDamagePreview}
                                 isAnimating={lastPenaltyEvent?.state === 'APPLIED'}
                                 className="shadow-2xl"
                             />
@@ -729,7 +735,7 @@ export const Battlefield: React.FC = () => {
                     <div className="relative h-40 sm:h-56 w-full flex justify-center z-10 mb-2 mt-2">
                         {gameState.enemy &&
                             gameState.enemy.hand.map((card, i) => (
-                                <div key={card.id} className="absolute top-0 origin-top transition-all duration-500 ease-out" style={getFanStyle(i, gameState.enemy!.hand.length, false, false)}>
+                                <div key={card.id} className="absolute top-0 origin-top transition-all duration-500 ease-out" style={getFanStyle(i, gameState.enemy!.hand.length, false, false, false)}>
                                     <CardComponent card={card} className="animate-deal-enemy" />
                                 </div>
                             ))}
@@ -858,17 +864,28 @@ export const Battlefield: React.FC = () => {
                         </div>
                     </div>
                     <div className="relative h-44 sm:h-60 w-full flex justify-center items-end mb-4 sm:mb-10">
-                        {gameState.player.hand.map((card, i) => (
+                        {gameState.player.hand.map((card, i) => {
+                            const isDragging = draggingHandIndex === i;
+                            const isHovered = hoveredHandIndex === i;
+                            
+                            return (
                             <div
                                 key={card.id}
                                 className="absolute bottom-0 origin-bottom"
-                                style={getFanStyle(i, gameState.player.hand.length, true, hoveredHandIndex === i)}
+                                style={getFanStyle(i, gameState.player.hand.length, true, isHovered, isDragging)}
                                 onMouseEnter={() => setHoveredHandIndex(i)}
                                 onMouseLeave={() => setHoveredHandIndex(null)}
                             >
-                                <CardComponent card={card} className="animate-deal-player" />
+                                <Draggable
+                                    className="origin-bottom"
+                                    dragScale={1.1}
+                                    onDragStart={() => setDraggingHandIndex(i)}
+                                    onDragEnd={() => setDraggingHandIndex(null)}
+                                >
+                                    <CardComponent card={card} className="animate-deal-player" />
+                                </Draggable>
                             </div>
-                        ))}
+                        )})}
                     </div>
                     <div className="w-full flex justify-center pb-2 relative z-30">
                         <div className="flex gap-4 justify-center">
@@ -911,6 +928,9 @@ export const Battlefield: React.FC = () => {
             <div className={`absolute bottom-4 left-4 z-50 flex items-end pl-2 pb-2 ${animClassBottom}`}>
                 {gameState.player.inventory.map((item, idx) => {
                     const isFlying = activeItemIndex === idx && activeItemEffect?.actor === 'PLAYER';
+                    const isDragging = draggingInventoryIndex === idx;
+                    const isHovered = hoveredInventoryIndex === idx;
+
                     return (
                         <div
                             key={`${item.id}-${idx}`}
@@ -919,18 +939,30 @@ export const Battlefield: React.FC = () => {
                             onMouseLeave={() => setHoveredInventoryIndex(null)}
                             style={{
                                 marginLeft: idx === 0 ? 0 : playerInvOverlap,
-                                zIndex: hoveredInventoryIndex === idx ? 100 : 50 + idx,
-                                transform: hoveredInventoryIndex === idx ? 'translateY(-80px) scale(1.1)' : `translateY(${idx * -5}px)`,
-                                marginRight: hoveredInventoryIndex === idx ? '60px' : '0px',
+                                zIndex: isDragging ? 200 : (isHovered ? 100 : 50 + idx),
+                                transform: !isDragging && isHovered ? 'translateY(-80px) scale(1.1)' : `translateY(${idx * -5}px)`,
+                                marginRight: !isDragging && isHovered ? '60px' : '0px',
                             }}
                         >
-                            <ItemCard
-                                item={item}
+                            <Draggable
+                                onDragStart={() => setDraggingInventoryIndex(idx)}
+                                onDragEnd={() => setDraggingInventoryIndex(null)}
+                                checkDropZone={(x, y) => y < window.innerHeight * 0.65}
+                                onDrop={() => useItem(idx, 'PLAYER')}
                                 onClick={() => useItem(idx, 'PLAYER')}
                                 disabled={
                                     gameState.turnOwner !== 'PLAYER' || gameState.playerStood || isDealing || clashState.active || !!activeItemEffect
                                 }
-                            />
+                            >
+                                <ItemCard
+                                    item={item}
+                                    // Click is handled by Draggable
+                                    onClick={undefined}
+                                    disabled={
+                                        gameState.turnOwner !== 'PLAYER' || gameState.playerStood || isDealing || clashState.active || !!activeItemEffect
+                                    }
+                                />
+                            </Draggable>
                         </div>
                     );
                 })}
