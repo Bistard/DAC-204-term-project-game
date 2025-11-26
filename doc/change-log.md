@@ -1,4 +1,6 @@
 #### [2025-11-26]
+##### **Feature**
+- 教程页面（2页）
 ##### **Refactor**
 - 重构一：
   - 新增 `engine/services/runLifecycleService.ts`，统一 `startNewRun` / `prepareNextLevel` 的 GameState 构造（敌人、环境、惩罚卡、套牌、环境规则一次完成）。
