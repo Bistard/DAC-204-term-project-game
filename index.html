@@ -308,6 +308,17 @@
         animation: letter-jitter 3s ease-in-out infinite;
       }
 
+      /* Sign Sway (New) */
+      @keyframes sign-sway {
+        0% { transform: rotate(-1deg); }
+        50% { transform: rotate(1deg); }
+        100% { transform: rotate(-1deg); }
+      }
+      .animate-sign-sway {
+        animation: sign-sway 6s ease-in-out infinite;
+        transform-origin: top center;
+      }
+
       /* --- Hand Avatar Animations (Unchanged mostly) --- */
       
       /* Idle - Subtle Breathing */
@@ -627,6 +638,27 @@
       }
       .slide-out-right {
         animation: slide-out-right 0.8s cubic-bezier(0.55, 0.055, 0.675, 0.19) forwards;
+      }
+
+      /* --- NEW BACKGROUND ANIMATIONS (Menu) --- */
+
+      @keyframes cloud-drift {
+        0% { transform: translateX(100vw); }
+        100% { transform: translateX(-150px); }
+      }
+      .animate-cloud-drift {
+        animation: cloud-drift linear infinite;
+      }
+
+      @keyframes bird-fly {
+        0% { transform: translate(0, 0) rotate(0deg); }
+        25% { transform: translate(20px, -10px) rotate(5deg); }
+        50% { transform: translate(0, 0) rotate(0deg); }
+        75% { transform: translate(-20px, -10px) rotate(-5deg); }
+        100% { transform: translate(0, 0) rotate(0deg); }
+      }
+      .animate-bird-fly {
+        animation: bird-fly 6s ease-in-out infinite;
       }
 
     </style>
