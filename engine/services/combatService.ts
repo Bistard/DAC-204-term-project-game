@@ -4,10 +4,13 @@ import { GameStore } from '../state/gameStore';
 import { GamePhase, Item, MetaState, StoreUpdateMeta, TurnOwner } from '../../common/types';
 import { sleep } from '../utils';
 import { RewardService } from './rewardService';
-import { RoundService, CreateMetaFn } from './roundService';
+import { RoundService } from './roundService';
 import { ItemEffectService } from './itemEffectService';
 import { AiService } from './aiService';
 import { RunLifecycleService } from './runLifecycleService';
+import { DamageService } from './damageService';
+import { PenaltyEngine } from './penaltyEngine';
+import { CreateMetaFn } from './commonService';
 
 interface CombatServiceDeps {
     store: GameStore;
@@ -23,18 +26,31 @@ export class CombatService {
     private roundService: RoundService;
     private itemEffects: ItemEffectService;
     private aiService: AiService;
+    private damageService: DamageService;
+    private penaltyEngine: PenaltyEngine;
 
     constructor(private deps: CombatServiceDeps) {
         this.store = deps.store;
         this.eventBus = deps.eventBus;
 
         const createMeta: CreateMetaFn = this.createMeta.bind(this);
+        this.damageService = new DamageService({
+            store: this.store,
+            eventBus: this.eventBus,
+            createMeta,
+        });
+        this.penaltyEngine = new PenaltyEngine({
+            store: this.store,
+            createMeta,
+        });
         this.roundService = new RoundService({
             store: this.store,
             eventBus: this.eventBus,
             getMetaState: this.deps.getMetaState,
             rewardService: this.deps.rewardService,
             runLifecycleService: this.deps.runLifecycleService,
+            damageService: this.damageService,
+            penaltyEngine: this.penaltyEngine,
             createMeta,
             onRoundReady: () => this.evaluateFlow(),
         });
@@ -42,6 +58,7 @@ export class CombatService {
             store: this.store,
             eventBus: this.eventBus,
             roundService: this.roundService,
+            damageService: this.damageService,
             createMeta,
         });
         this.aiService = new AiService({

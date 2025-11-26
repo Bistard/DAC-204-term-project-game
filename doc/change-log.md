@@ -1,3 +1,14 @@
+#### [2025-11-26]
+##### **Refactor**
+- 重构一：
+  - 新增 `engine/services/runLifecycleService.ts`，统一 `startNewRun` / `prepareNextLevel` 的 GameState 构造（敌人、环境、惩罚卡、套牌、环境规则一次完成）。
+  - `RoundService.startRun` 与 `RewardService.prepareNextLevel` 改为调用生命周期门面，删除重复初始化逻辑并确保首关/后续关流程一致。
+  - Reward 阶段只剩金币计数与奖励选项重置，`GameEngine` 继续通过 Combat/Reward API 推进流程，状态构造细节完全收口到 lifecycle 服务。
+- 重构二：
+  - 建立 `DamageService`，统一 Clash 判定、环境加成、护盾结算、回血与 Sudden Death，所有伤害事件统一走 `damage.number` 管线。
+  - 新增 `PenaltyEngine`，集中管理 `PenaltyRuntimeState` 与惩罚卡 fallback 逻辑，`RoundService` 只需下发上下文即可获得伤害/治疗结果。
+  - `RoundService`、`ItemEffectService`、Combat 管线全面改用 Damage/Penalty Engine，删除散落的 HP/护盾写操作并共享统一日志/事件播报。
+  - 抽离 `CreateMetaFn` 到 `engine/services/serviceTypes.ts`，便于多个服务共用统一的日志工厂。
 #### [2025-11-25]
 ##### **Feature**
 - 重新设计主页美术
@@ -20,10 +31,6 @@
     - 与 Auto Hit 存在潜在冲突。 
   - 爆牌（Specific Bust at 17/18）当前对战中，点数达到 17 或 18 也会被视为爆牌。  
     - 与「点数改变（18/24/27）」存在直接冲突。
-##### **Refactor**
-- 新增 `engine/services/runLifecycleService.ts`，统一 `startNewRun` / `prepareNextLevel` 的 GameState 构造（敌人、环境、惩罚卡、套牌、环境规则一次完成）。
-- `RoundService.startRun` 与 `RewardService.prepareNextLevel` 改为调用生命周期门面，删除重复初始化逻辑并确保首关/后续关流程一致。
-- Reward 阶段只剩金币计数与奖励选项重置，`GameEngine` 继续通过 Combat/Reward API 推进流程，状态构造细节完全收口到 lifecycle 服务。
 #### [2025-11-24]
 ##### **Feature**
 - 新增 Penalty Cards 惩罚卡系统：每场 Battle 固定抽取 1 张惩罚卡，由数据驱动的 damageFunction 统一处理胜负双方的 HP 结算

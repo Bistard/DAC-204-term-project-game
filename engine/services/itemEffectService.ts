@@ -2,12 +2,15 @@ import { EventBus } from '../eventBus';
 import { GameStore } from '../state/gameStore';
 import { Card, Item, LogicEffectConfig, LogicEffectType, TurnOwner } from '../../common/types';
 import { calculateScore, getRandomItems, sleep } from '../utils';
-import { RoundService, CreateMetaFn } from './roundService';
+import { RoundService } from './roundService';
+import { DamageService } from './damageService';
+import { CreateMetaFn } from './commonService';
 
 interface ItemEffectServiceDeps {
     store: GameStore;
     eventBus: EventBus;
     roundService: RoundService;
+    damageService: DamageService;
     createMeta: CreateMetaFn;
 }
 
@@ -53,24 +56,9 @@ export class ItemEffectService {
         if (amount <= 0) return;
         const targets = this.resolveTargets(actor, effect.scope);
         targets.forEach(target => {
-            this.deps.store.updateState(
-                prev => {
-                    const entity = target === 'PLAYER' ? prev.player : prev.enemy;
-                    if (!entity) return prev;
-                    const nextHp = Math.min(entity.maxHp, entity.hp + amount);
-                    return {
-                        ...prev,
-                        [target === 'PLAYER' ? 'player' : 'enemy']: {
-                            ...entity,
-                            hp: nextHp,
-                        },
-                    };
-                },
-                this.deps.createMeta('effect.heal', `Heal applied to ${target}`, { target, amount })
-            );
-            this.deps.eventBus.emit({
-                type: 'damage.number',
-                payload: { value: amount, target, variant: 'HEAL' },
+            this.deps.damageService.applyHealing(target, amount, {
+                metaTag: 'effect.heal',
+                description: `Heal applied to ${target}`,
             });
         });
     }
@@ -364,7 +352,12 @@ export class ItemEffectService {
         const amount = Math.floor(effect.amount ?? 0);
         if (amount <= 0) return;
         const targets = this.resolveTargets(actor, effect.scope);
-        targets.forEach(target => this.deps.roundService.applyDamage(target, amount));
+        targets.forEach(target =>
+            this.deps.damageService.applyDamageWithShieldAndEnv(target, amount, {
+                metaTag: 'effect.selfDamage',
+                description: `Self damage applied to ${target}`,
+            })
+        );
     }
 
     private setTemporaryTargetScore(effect: LogicEffectConfig) {
@@ -454,7 +447,10 @@ export class ItemEffectService {
         if (!targets.length) return;
         let drainedTotal = 0;
         targets.forEach(target => {
-            drainedTotal += this.deps.roundService.applyDamage(target, amount);
+            drainedTotal += this.deps.damageService.applyDamageWithShieldAndEnv(target, amount, {
+                metaTag: 'effect.lifeDrain',
+                description: 'Life drain damage',
+            });
         });
         if (drainedTotal <= 0) return;
         this.applyHeal(
