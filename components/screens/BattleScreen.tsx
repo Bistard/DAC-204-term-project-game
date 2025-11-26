@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { EyeOff, Zap, CheckCircle, Search, X, Swords, Book, Coins } from 'lucide-react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
+import { EyeOff, Zap, CheckCircle, Search, X, Swords, Book, Coins, PenTool, Trash2 } from 'lucide-react';
 import { PlayerHand } from '../PlayerHand';
 import { ItemCard } from '../cards/ItemCard';
 import { HealthBar } from '../ui/HealthBar';
@@ -425,6 +425,127 @@ const ItemCompendiumModal: React.FC<{
     </div>
 );
 
+const SketchOverlay: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, onClose }) => {
+    const canvasRef = useRef<HTMLCanvasElement>(null);
+    const [isDrawing, setIsDrawing] = useState(false);
+    const [color, setColor] = useState('#f3e5ab');
+
+    // Handle canvas resizing
+    useEffect(() => {
+        const handleResize = () => {
+            if (canvasRef.current) {
+                // We're accepting that resize clears the canvas for simplicity in this version
+                // To preserve, we'd need to copy imageData, resize, and put back
+                const canvas = canvasRef.current;
+                const ctx = canvas.getContext('2d');
+                const tempCanvas = document.createElement('canvas');
+                const tempCtx = tempCanvas.getContext('2d');
+                
+                if (ctx && tempCtx) {
+                    tempCanvas.width = canvas.width;
+                    tempCanvas.height = canvas.height;
+                    tempCtx.drawImage(canvas, 0, 0);
+                    
+                    canvas.width = window.innerWidth;
+                    canvas.height = window.innerHeight;
+                    
+                    ctx.drawImage(tempCanvas, 0, 0);
+                    ctx.lineCap = 'round';
+                    ctx.lineJoin = 'round';
+                    ctx.lineWidth = 3;
+                }
+            }
+        };
+
+        window.addEventListener('resize', handleResize);
+        handleResize(); // Init size
+
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
+    const getPoint = (e: React.MouseEvent | React.TouchEvent) => {
+        const clientX = 'touches' in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX;
+        const clientY = 'touches' in e ? e.touches[0].clientY : (e as React.MouseEvent).clientY;
+        return { x: clientX, y: clientY };
+    };
+
+    const startDrawing = (e: React.MouseEvent | React.TouchEvent) => {
+        if (!canvasRef.current) return;
+        const ctx = canvasRef.current.getContext('2d');
+        if (!ctx) return;
+        
+        setIsDrawing(true);
+        const { x, y } = getPoint(e);
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 3;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+    };
+
+    const draw = (e: React.MouseEvent | React.TouchEvent) => {
+        if (!isDrawing || !canvasRef.current) return;
+        e.preventDefault(); // Prevent scrolling on touch
+        const ctx = canvasRef.current.getContext('2d');
+        if (!ctx) return;
+        
+        const { x, y } = getPoint(e);
+        ctx.lineTo(x, y);
+        ctx.stroke();
+    };
+
+    const stopDrawing = () => {
+        setIsDrawing(false);
+    };
+
+    const clear = () => {
+        if (!canvasRef.current) return;
+        const ctx = canvasRef.current.getContext('2d');
+        ctx?.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+    };
+
+    return (
+        <div className={`fixed inset-0 z-[150] transition-all duration-300 ${isOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
+            <canvas
+                ref={canvasRef}
+                className="absolute inset-0 cursor-crosshair touch-none"
+                onMouseDown={startDrawing}
+                onMouseMove={draw}
+                onMouseUp={stopDrawing}
+                onMouseLeave={stopDrawing}
+                onTouchStart={startDrawing}
+                onTouchMove={draw}
+                onTouchEnd={stopDrawing}
+            />
+            {isOpen && (
+                <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-[#3e2723] border-2 border-[#8d6e63] p-2 rounded-lg shadow-xl flex items-center gap-4 pixel-corners animate-slide-in-top z-[160]">
+                    <span className="text-[#a1887f] font-bold text-xs uppercase tracking-widest western-font">Sketch</span>
+                    <div className="w-px h-6 bg-[#5d4037]"></div>
+                    <div className="flex gap-2">
+                        {['#f3e5ab', '#ef4444', '#22d3ee'].map(c => (
+                            <button
+                                key={c}
+                                onClick={() => setColor(c)}
+                                className={`w-6 h-6 rounded-full border-2 transition-transform ${color === c ? 'border-white scale-110' : 'border-transparent hover:scale-110'}`}
+                                style={{ backgroundColor: c }}
+                            />
+                        ))}
+                    </div>
+                    <div className="w-px h-6 bg-[#5d4037]"></div>
+                    <button onClick={clear} className="text-[#a1887f] hover:text-red-400 transition-colors flex items-center gap-1" title="Clear Canvas">
+                        <Trash2 size={20} />
+                    </button>
+                    <div className="w-px h-6 bg-[#5d4037]"></div>
+                    <button onClick={onClose} className="text-[#a1887f] hover:text-[#f3e5ab] transition-colors" title="Close Sketch Mode">
+                        <X size={20} />
+                    </button>
+                </div>
+            )}
+        </div>
+    );
+};
+
 export const Battlefield: React.FC = () => {
     const {
         gameState,
@@ -453,6 +574,7 @@ export const Battlefield: React.FC = () => {
     const [hoveredInventoryIndex, setHoveredInventoryIndex] = useState<number | null>(null);
     const [showDeckView, setShowDeckView] = useState(false);
     const [showItemCompendium, setShowItemCompendium] = useState(false);
+    const [showSketch, setShowSketch] = useState(false);
     const [compendiumTab, setCompendiumTab] = useState<'ITEMS' | 'ENV'>('ITEMS');
     const [goldAnim, setGoldAnim] = useState('');
     const [fadeOutItem, setFadeOutItem] = useState(false);
@@ -506,6 +628,8 @@ export const Battlefield: React.FC = () => {
             <PenaltyAnimation animatingPenaltyCard={animatingPenaltyCard} />
             <EnvironmentAnimation animatingEnvCard={animatingEnvCard} />
             <ClashOverlay clashState={clashState} />
+
+            <SketchOverlay isOpen={showSketch} onClose={() => setShowSketch(false)} />
 
             {showDeckView && (
                 <DeckTrackerModal
@@ -674,6 +798,18 @@ export const Battlefield: React.FC = () => {
                         gameState.turnOwner === 'PLAYER' ? 'bg-[#3e2723]/60 shadow-[0_0_50px_-12px_rgba(251,191,36,0.3)] border border-[#a1887f]/40' : 'opacity-80'
                     }`}
                 >
+                    <button
+                        onClick={() => setShowSketch(!showSketch)}
+                        className={`absolute top-2 right-2 sm:top-4 sm:right-4 z-50 p-1.5 sm:p-2 border-2 transition-all pixel-corners shadow-lg flex items-center justify-center group ${
+                            showSketch 
+                                ? 'bg-[#3e2723] border-amber-400 text-amber-400 shadow-[0_0_10px_rgba(251,191,36,0.5)]' 
+                                : 'bg-[#271c19]/80 border-[#5d4037] text-[#8d6e63] hover:text-[#f3e5ab] hover:border-[#8d6e63] hover:-translate-y-0.5'
+                        }`}
+                        title="Sketch Mode"
+                    >
+                        <PenTool size={16} className="sm:w-5 sm:h-5" />
+                    </button>
+
                     <div className="flex flex-wrap justify-center w-full -mb-6 gap-6 items-end relative z-20">
                         <div
                             className={`transition-all duration-300 px-4 py-1 rounded border-2 pixel-corners text-lg sm:text-xl uppercase tracking-widest font-bold flex items-center gap-2 western-font ${

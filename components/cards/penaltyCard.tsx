@@ -58,7 +58,7 @@ export const PenaltyCardDisplay: React.FC<Props> = ({ card, runtime, className =
 
              {/* Streak Badge */}
             {streak > 0 && (
-                <div className="absolute top-8 -right-2 z-20 bg-red-600 text-white font-black text-xs px-2 py-0.5 rounded-l-md shadow-md border border-red-800 animate-bounce">
+                <div className="absolute top-8 right-0 z-20 bg-red-600 text-white font-black text-xs px-2 py-0.5 rounded-l-md shadow-md border border-red-800 animate-bounce">
                     x{streak}
                 </div>
             )}
@@ -71,8 +71,8 @@ export const PenaltyCardDisplay: React.FC<Props> = ({ card, runtime, className =
              
              {streak > 0 && (
                  <div className="bg-[#2a0a0a] border border-[#7f1d1d] p-2 rounded text-center">
-                     <span className="text-xs text-amber-500 uppercase font-bold tracking-wider">Winning Streak</span>
-                     <div className="text-[#fecaca] font-mono text-sm">{streak} Rounds</div>
+                     <span className="text-[16px] text-amber-500 uppercase font-bold tracking-wider">Winning Streak</span>
+                     <div className="text-[16px] text-[#fecaca] font-mono">{streak} Rounds</div>
                  </div>
              )}
         </div>
