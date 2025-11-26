@@ -1,155 +1,341 @@
-# Run → Level → Round Refactor Plan
-> Version: 2025-11-26 · Author: Codex  
-> Scope: Engine 架构重构（`runService` / `levelService` / `roundService`）与 React UI 解耦
+# 重构计划：Run / Battle / Round 分层服务架构（更新版）
+
+本文件用于指导本项目战斗系统的整体架构重构，内容基于目前为止的所有讨论和共识，覆盖：
+
+- Run / Battle / Round 三层的职责边界  
+- Penalty / Environment / Item / AI / 奖励 等系统的归属  
+- RunState / BattleState / RoundState 状态拆分思路  
+- BattleRuleService / itemService 等核心模块的定位  
+- 分阶段实施计划（每个阶段都必须编写 / 更新单元测试）
+
+工程师可以直接据此实施重构。
 
 ---
 
-## 1. 背景与痛点
-- `engine/services/roundService.ts` 同时负责 **Run 初始化、Level/round 状态管理、动画节奏、Damage/Penalty 调用**，体积超 23k 行，极难维护与复用。
-- `CombatService`、`RewardService`、`RunLifecycleService` 之间对 `GameState` 直接读写，缺少清晰的层级边界，导致 UI (`components/screens/BattleScreen.tsx`) 与引擎代码高度耦合当前状态结构。
-- 事件流在多处生成（`RoundService.emitHandAction`、`GameContext`、多个 hooks），缺乏统一的“回合事件”语义，新增玩法需要同时改动 UI 与引擎。
-- 缺少 Run/Level/Round 独立状态，`GameState` 担任所有职责，难以做战斗回放、持久化或 A/B 实验。
+## 1. 重构目标
+
+- 将一次 Run、单场 Battle、单个 Round 的逻辑严格分层，降低耦合、提高可维护性。
+- 严格贯彻设计硬规则：
+  - Penalty / Environment 卡只影响当前 Battle 的整体规则与结算；
+  - Item 卡只影响当前 Round 内的即时行为与结算。
+- 使用 RunState / BattleState / RoundState 拆分状态结构，让每一层都能单独做单元测试。
+- 简化服务与目录结构（例如合并 PenaltyEngine、合并 Item 相关服务），以后再视需要细分。
 
 ---
 
-## 2. 目标与非目标
-### 必须达成
-1. 建立 **run → level → round** 分层服务：`runService` 统管旅程、`levelService` 统管单关战斗、`roundService` 聚焦单回合决策。
-2. 引入 `RunState` / `LevelState` / `RoundState` 明确结构，并保证上层只通过公共 API 驱动下层。
-3. Combat 流程改为“Run 推进 → Level 驱动回合 → RoundCore 返回纯事件”，UI 只消费事件与映射好的投影（ViewState）。
-4. 保持现有功能与动画体验，对玩家零感知。
+## 2. 设计原则
 
-### 非目标
-- 不重写 UI 视觉；仅适度调整 `GameContext`/hooks 的数据来源。
-- 不改动 Reward/Meta 系统业务逻辑，只更换入口（Run 结束/Level 结束触发点）。
-- 不一次性完成所有 AI/Item 规则重写，先保证现有服务可被 Level/Round 调用。
+1. **严格分层调用**
+   - `RunService`：负责一次 Run 的完整生命周期（开始、关卡推进、结束）。
+   - `BattleService`：负责单场 Battle 的生命周期。
+   - `RoundService`：负责单个 Round 内的出牌、行为与回合结果判定。
+   - 调用方向：Run → Battle → Round（自上而下）；结果与事件由下向上传递。
+
+2. **Battle 级规则与结算的唯一归属**
+   - 所有 Penalty / Environment 的规则解释与数值影响在 Battle 层完成（由 RuleService 维护）。
+   - 所有 HP / 护盾相关结算由 `BattleService` 负责：基于当前规则和 Round 结果做一次数学计算并写回 BattleState。
+   - Round 只返回「本回合结果」（谁赢 / 谁输、爆牌与否等），不直接调用任何伤害或 Penalty / Environment 代码。
+
+3. **Round 级战术行为唯一归属**
+   - Item 效果、单回合 buff / debuff、Hit / Stand 流程由 Round 层完成。
+   - Round 只读 / 写 RoundState；不直接修改 BattleState 或 RunState。
+
+4. **AI 行为由 Battle 调度**
+   - 是否轮到 AI、何时行动由 Battle 决定。
+   - Battle 调用 `aiService` 获取决策，再通过 Round 的公开接口执行 HIT / STAND 等。
+   - Round 永远不直接依赖 AI。
+
+5. **按层级归类文件，尽量少用“公共大杂烩”目录**
+   - Battle 专属逻辑（规则、伤害、Penalty、Environment、Battle 奖励等）放在 `battle/`。
+   - Round 专属逻辑（Item 效果、回合修正等）放在 `round/`。
+   - Run 专属逻辑（Run 奖励、地图推进、Run 总结等）放在 `run/`。
+   - 实在暂时分不清的少量纯工具，先放在 `engine/` 根目录（例如 `factories.ts`），以后再重构拆分。
+
+6. **状态显式拆分**
+   - 顶层存在一个 `GameState`，内部由 `RunState` / `BattleState` / `RoundState` 组成。
+   - 业务代码通过专门的读写函数操作对应层的状态，而不是在各处随意改 `GameState`。
+
+7. **接口命名约定**
+   - 对外暴露的接口（服务接口、跨层 DTO / 上下文）统一使用 `I` 前缀：
+     - `IRunService`、`IBattleService`、`IRoundService`
+     - `IBattleResult`、`IRoundResult`、`IRoundContext`
+     - `IBattleRuleService`、`IItemService` 等
+   - 状态结构可以继续使用 `RunState` / `BattleState` / `RoundState` 命名（更接近“数据结构”而非“服务接口”）。
 
 ---
 
-## 3. 新架构概览
+## 3. 目标架构概览
+
+### 3.1 各层职责
+
+| 层级 | 模块            | 职责范围                                                                 | 输入                                          | 输出                                               |
+| ---- | --------------- | ------------------------------------------------------------------------ | --------------------------------------------- | -------------------------------------------------- |
+| Run  | `RunService`    | 一次 Run 的完整生命周期：Run 开始、关卡推进、Run 级奖励、Run 结束与总结 | Meta、Run 配置、各 Battle 结果                | `run.state`、`run.completed`、`battle.request`    |
+| Battle | `BattleService` | 单场 Battle：环境 / 惩罚抽取与应用、敌人生成、牌堆初始化、规则应用、伤害结算、胜负判定、生出 Battle 级奖励 | Run 下发的关卡指令、工厂函数、Round 回调     | `battle.state`、`battle.result`、`round.request`  |
+| Round | `RoundService` | 单个 Round：抽牌、Hit/Stand、Item 使用、本回合 buff/debuff、生效与回合胜负判定 | Battle 下发的「本轮规则上下文」与限制参数    | `round.state`、`round.resolved`、`hand.action`    |
+
+---
+
+## 4. 模块归属与服务设计
+
+### 4.1 Battle 层模块（engine/services/battle/）
+
+- `battleService.ts`  
+  - 实现 `IBattleService` 接口。  
+  - 负责 Battle 的整体状态机：
+    - 调用 RuleService 初始化 / 更新 Battle 规则（`IBattleRuleState`）；  
+    - 调用 RoundService 执行回合并获取 `IRoundResult`；  
+    - 基于当前规则和 `IRoundResult` 在内部计算 HP 变化，并写回 BattleState 中的 player / enemy；  
+    - 调用 AI 与 battleReward 模块；  
+    - 在 Battle 结束时向 Run 汇报 `IBattleResult` 和奖励候选。
+
+- `battleRuleService.ts`（RuleService）  
+  - 实现 `IBattleRuleService` 接口，是 Battle 层的「规则中枢」：
+    - 定义并维护 `IBattleRuleState`，包含：
+      - 计分 / bust 规则；  
+      - 牌堆相关规则（deck shrink、自动抽牌等）；  
+      - 伤害相关系数（基础伤害、倍率等）；  
+      - Item 锁定；  
+      - 特殊胜利规则（如 sudden death 阈值）等。  
+    - `createBaseRules(level)`：根据关卡 / 难度生成基础规则；  
+    - `applyEnvironmentCards(rules, envCards)`：根据环境卡修改规则（由现有 `environmentRuleEngine` 逻辑演进）；  
+    - `applyPenaltyCard(rules, penalty)`：根据惩罚卡修改规则 / runtime（合并原 PenaltyEngine 中「规则层」部分）；  
+    - `getRoundRuleContext(rules): IRoundContextRules`：为 Round 提供本回合需要的规则参数（目标点数、自动抽牌数等）。  
+  - 不直接做伤害计算，只提供「伤害相关的系数 / 规则」给 BattleService 使用。  
+  - `BattleService` 不需要理解单张环境 / 惩罚卡的细节，只需要与 `IBattleRuleService` 打交道。
+
+- `battleReward.ts`  
+  - 可实现 `IBattleRewardService`，也可以是若干纯函数。  
+  - 在 Battle 胜利后，根据 BattleState / RunState / IBattleResult 生成 Battle 级奖励 DTO 列表，交给 RunService 处理。
+
+- `aiService.ts`  
+  - 实现 `IAiService` 接口。  
+  - 根据当前 Battle / Round 视图决定敌人行为（HIT / STAND / USE_ITEM 等），由 BattleService 决定何时调用并转发给 RoundService。
+
+> 惩罚卡、环境卡本质都是对规则（IBattleRuleState）的修改：  
+> - 惩罚卡子系统负责「抽哪张惩罚卡」，再由 RuleService 解释其规则；  
+> - 环境卡子系统负责「抽哪些环境卡」，再由 RuleService 解释其规则；  
+> - BattleService 只感知「规则状态」和「数值结果」，不关心具体卡牌如何实现规则。
+
+### 4.2 Round 层模块（engine/services/round/）
+
+- `roundService.ts`  
+  - 实现 `IRoundService` 接口。  
+  - 负责单个 Round 的：
+    - 初始化（`beginRound(IRoundContext)`）；  
+    - 行为执行（`hit(actor)` / `stand(actor)` / `useItem(index, actor)`）；  
+    - 回合结果判定（`resolveRound()` 返回 `IRoundResult`，但不改 HP）。
+
+- `itemService.ts`  
+  - 实现 `IItemService` 接口。  
+  - 将原 `itemEffectService` 与 `effectRegistry` 合并：
+    - 维护 Item → 效果函数注册表；  
+    - 提供 `applyItem(item, context)` 等方法；  
+    - 只读 / 写 RoundState 或通过回调更新 RoundState，不直接触碰 BattleState / RunState。  
+  - `RoundService` 通过注入的 `IItemService` 来执行 Item 效果。
+
+### 4.3 Run 层模块（engine/services/run/）
+
+- `runService.ts`  
+  - 实现 `IRunService` 接口。  
+  - 负责：
+    - `startRun(meta)`：创建新的 RunState；  
+    - `startNextBattle()`：基于当前 RunState 组装 Battle 初始化信息并调用 BattleService；  
+    - `handleBattleResult(IBattleResult, rewards)`：更新 RunState（经验、货币、升级点等），并决定是否继续下一关或结束 Run；  
+    - `abortRun()`：中断当前 Run 并回到主菜单。
+
+---
+
+## 5. 状态与目录规划
+
+### 5.1 状态结构（RunState / BattleState / RoundState）
+
+本小节只约束各 State 的**职责与信息范围**，不锁定具体的 TypeScript interface；实际字段与命名可在实现阶段由 agent 结合现有 `GameState` 自由设计。
+
+- RunState（engine/state/runState.ts）
+  - 作用：承载一次 Run 的全局信息。
+  - 至少应包含：当前关卡 / 进度、玩家 meta 与升级信息、全局货币 / 资源、本次 Run 的整体结果（进行中 / 胜利 / 失败）等。
+
+- BattleState（engine/state/battleState.ts）
+  - 作用：承载当前 Battle 的局部信息。
+  - 至少应包含：当前敌人数据、当前生效的环境卡 / 惩罚卡及其运行时状态、Battle 内部的牌堆 / 弃牌堆、Battle 统计信息、Battle 规则状态（如 IBattleRuleState）等。
+
+- RoundState（engine/state/roundState.ts）
+  - 作用：承载当前 Round 的回合级信息。
+  - 至少应包含：玩家 / 敌人手牌与分数、回合修正（buff / debuff）、当前出牌方、玩家 / 敌人是否已 Stand、回合计数等。
+
+- 顶层 GameState（engine/state/gameState.ts）
+  - 作用：组合 RunState / BattleState / RoundState。
+  - 约束：应有清晰的 run / battle / round 子结构，便于各层通过统一的辅助函数安全访问。
+
+- 读写辅助函数（converter）
+  - 建议在各个 `xxxState.ts` 中提供类似下面的读写模式（仅示意，不强制字段细节）：
+    ```ts
+    export function getRunState(game: GameState): RunState { return game.run; }
+    export function withRunState(
+      game: GameState,
+      updater: (s: RunState) => RunState,
+    ): GameState {
+      return { ...game, run: updater(game.run) };
+    }
+    ```
+  - Battle / Round 可参照实现 `getBattleState` / `withBattleState`、`getRoundState` / `withRoundState`。
+
+### 5.2 目标目录结构（重构完成后）
+
+```text
+engine/
+  state/
+    runState.ts
+    battleState.ts
+    roundState.ts
+    gameState.ts
+
+  services/
+    run/
+      runService.ts
+      runService.contracts.ts   # 定义 IRunService、IRunContext 等接口
+    battle/
+      battleService.ts
+      battleRuleService.ts      # IBattleRuleService：维护 IBattleRuleState 并应用环境 / 惩罚卡规则
+      battleReward.ts
+      aiService.ts
+    round/
+      roundService.ts
+      itemService.ts            # IItemService：Item 注册 + 效果执行统一管理
+
+  factories.ts                  # 通用工厂 / 少量共享规则（暂时放根目录）
+  utils.ts                      # 现有通用工具
+
+tests/
+  unit/
+    run/
+      runService.test.ts
+    battle/
+      battleService.test.ts
+      battleRuleService.test.ts
+    round/
+      roundService.test.ts
+      itemService.test.ts
+  integration/
+    runBattleRound.integration.test.ts
 ```
-RunService (macro flow) ── manages RunState, meta, map progression
-   │
-   ├─ LevelService (per battle) ── consumes RunContext, owns LevelState
-   │      │
-   │      └─ RoundService (pure core) ── consumes Level snapshot + commands, outputs RoundResult + events
-   │
-   └─ RewardService / MetaUpdater ── invoked by RunService after LevelOutcome
-```
-
-- `RunService` 暴露 `start(meta)`, `advanceLevel(outcome)`, `abort(reason)`。
-- `LevelService` 暴露 `init(runContext)`, `startRound()`, `handlePlayerAction()`, `tickAI()`, `resolveRound()`, `getViewModel()`。
-- `RoundService` 提供纯函数式接口：`begin(roundState, modifiers) -> { nextState, events }`, `applyAction(roundState, action)`, `resolve(roundState)`.
 
 ---
 
-## 4. 职责划分（接口示例）
-| 层级 | 输入 | 输出 | 主要职责 |
-| --- | --- | --- | --- |
-| `runService` | MetaState、Run config、Level 结果 | `RunState`, `LevelConfig`, Reward hooks | 旅程推进、地图/难度曲线、Run 结束收尾、调用 `levelService` |
-| `levelService` | `RunContext`（包含 deck/环境/惩罚/Enemy seed） | `LevelState`, Round events, LevelOutcome | 初始化战斗、循环调用 RoundCore、胜负判定、通知 runService |
-| `roundService` | `RoundState`, 行动、规则（环境/惩罚/道具） | `{ state, events, outcome }` | 抽牌、Hit/Stand 决策、Bust/Clash 计算、Damage/Penalty IO |
+## 6. 分阶段实施计划（概要）
 
-附加规范：
-- RoundCore 返回 **事件列表**（`GameEvent`：log、animation、damage、draw 等），UI 只做订阅映射。
-- LevelService 维护定时器/动画节奏，不让 RoundCore 关心 `sleep`/UI 延迟。
+> 每个阶段都必须补充 / 更新对应的单元测试和必要的集成测试，且所有测试文件统一放在 `tests/**/*` 目录下，不能把测试全部堆到最后一阶段。
 
----
+### Phase 0 – 状态拆分与基础准备
 
-## 5. 状态模型调整
-1. **RunState**  
-   - 字段：`seed`, `currentLevel`, `maxLevel`, `mapNodes`, `relics`, `globalModifiers`, `metaSnapshot`.  
-   - 持久化：`GameStore` 保存 `runState` + `levelState` 分支，支持回滚。
-2. **LevelState**  
-   - 字段：`levelId`, `enemySet`, `environmentRuntime`, `penaltyRuntime`, `deckState`, `levelFlags`（如 `hasIntroPlayed`）。  
-   - 包含当前 `RoundState`，但仅通过 LevelService 接口暴露给外部。
-3. **RoundState**（纯数据）  
-   - `playerHand`, `enemyHand`, `deck`, `discardPile`, `scores`, `inventory`, `roundFlags`（`playerStood`, `enemyStood`, `pendingItemEffects`）。  
-   - 无副作用字段（不包含动画 flag）。
+- 实施内容：
+  - 新增 RunState / BattleState / RoundState，并在 `gameState.ts` 中重构 GameState 为三者的组合。
+  - 在 `doc/change-log.md` 中记录字段归属表和从旧 GameState 映射过来的规则。
+- 测试要求：
+  - 运行现有测试，确保在只改结构、不改行为的前提下全部通过。
+  - 如有必要，新增最小状态初始化单测，验证新 GameState 的默认值与旧行为一致。
 
-数据流：`GameState` 将拆为 `{ runState, levelState?, viewState }`。`GameContext` 读取 `viewState`（含 UI 需要的派生数据与事件 buffer）。
+### Phase 1 – 服务骨架与接口命名
 
----
+- 实施内容：
+  - 定义 `IRunService`、`IBattleService`、`IRoundService`、`IBattleRuleService`、`IItemService` 等接口。
+  - 在 run / battle / round 目录中创建对应类的骨架，实现这些接口的构造函数与空方法体（暂时直接调用旧逻辑或抛出 TODO）。
+- 测试要求：
+  - 在 `tests/unit/**` 下添加基础构造单测，确保各服务可以在注入依赖后成功创建。
+  - 保证当前主流程仍然通过旧入口（例如 CombatService 或现有 Engine）工作，新骨架暂时不改变行为。
 
-## 6. 协作与依赖
-- **EventBus**：继续作为跨层事件总线，但事件 schema 改为 `game/run/*`, `game/level/*`, `game/round/*`，便于订阅。
-- **DamageService / PenaltyEngine / ItemEffectService**：迁移为 RoundService 依赖，由 LevelService 注入上下文（避免直接访问 GameStore）。
-- **GameEngine**：  
-  - 负责创建 `runService`, `levelServiceFactory`, `roundServiceCore`。  
-  - `CombatService` 将被简化为 “玩家输入转发 + UI 辅助”，或逐步并入 LevelService。
-- **React hooks** (`useHandAction`, `useDamageNumbers`, `useEnvAndPenaltyAnimations`)：改为监听统一事件而非直接读取 GameState 的临时字段。
+### Phase 2 – RoundService 收缩 + itemService 合并
 
----
+- 实施内容：
+  - 从 RoundService 中移除 Run / Battle 级逻辑，只保留单回合职责：
+    - Round 初始化（beginRound）；  
+    - Hit / Stand / useItem；  
+    - resolveRound（返回 IRoundResult，不改 HP）。  
+  - 将原 `itemEffectService` 与 `effectRegistry` 合并为 `itemService.ts`（实现 `IItemService`），并通过依赖注入提供给 RoundService。
+- 测试要求：
+  - 在 `tests/unit/round/roundService.test.ts` 中编写 / 扩充单元测试，覆盖：
+    - 正常回合流程（玩家 / 敌人 Hit / Stand）；  
+    - 回合结束时的胜负 / 爆牌判断；  
+    - Item 使用的关键分支（成功 / 无效使用等）。  
+  - 在 `tests/unit/round/itemService.test.ts` 中为 itemService 编写单元测试，验证几类代表性 Item 效果的行为。
 
-## 7. 迁移策略（5 个里程碑）
-### M1 · RoundCore 抽取
-1. 在 `engine/services` 新建 `roundCore` 目录，提炼无副作用逻辑（抽牌、算分、clash/damage 调用）。  
-2. 为 RoundCore 建立单元测试（牌库、爆牌、环境规则、Penalty/Damage 交互）。  
-3. `RoundService` 继续保留节奏控制，但内部调用 RoundCore，验证输出事件。
+### Phase 3 – BattleService + RuleService
 
-### M2 · LevelService 雏形
-1. 新建 `levelService.ts`，封装 `startLevel`, `startRound`, `handlePlayerAction`, `handleEnemyTurn`, `resolve`.  
-2. LevelService 内部持有 `LevelState` + RoundCore 实例，AI/Item 服务通过依赖注入。  
-3. `CombatService` 重写为简单代理：把 UI Action 转交 LevelService，并把 LevelService 的 `ViewModel` 写回 `GameStore`.
+- 实施内容：
+  - 将原 `PenaltyEngine` 与 `environmentRuleEngine.ts` 中「规则层」逻辑合并到 `battleRuleService.ts`，实现 `IBattleRuleService`：
+    - `createBaseRules(level)`：创建关卡基础规则；  
+    - `applyEnvironmentCards`：应用环境卡对规则的修改；  
+    - `applyPenaltyCard`：应用惩罚卡对规则 / runtime 的修改；  
+    - `getRoundRuleContext`：为 Round 提供规则视图。  
+  - 在 BattleService 中：
+    - 使用 RuleService 初始化 / 更新 Battle 规则；  
+    - 调用 RoundService 得到 `IRoundResult`；  
+    - 依据当前规则与 `IRoundResult` 在 BattleService 内部计算 HP 变化，并写回 BattleState / RunState；  
+    - 驱动 AI 与 Battle 循环，保持现有体验。
+- 测试要求：
+  - 在 `tests/unit/battle/battleRuleService.test.ts` 中为 battleRuleService 编写单元测试，至少覆盖：
+    - 不同 Environment / Penalty 组合下规则的变化（计分、自动抽牌、deck shrink、伤害倍数等）；  
+    - 多张卡叠加、无卡时的默认规则等边界情况。  
+  - 在 `tests/unit/battle/battleService.test.ts` 中为 BattleService 编写单元测试，验证：
+    - 给定 RuleState + RoundResult 时 HP / 状态更新是否正确；  
+    - 环境 / 惩罚对 Battle 行为的关键影响是否生效。
 
-### M3 · RunService 拆分
-1. 在现有 `RunLifecycleService` 基础上扩展为 `runService.ts`，新增 `RunState`、地图/节点数据结构。  
-2. 提供 `start(meta)`, `completeLevel(result)`, `handleGameOver(reason)`，并管理奖励/升级入口（调用 `RewardService`）。  
-3. `GameEngine` 中流程改为：`runService.start()` → `levelService.init(runContext)` → `levelService.loop()`。
+### Phase 4 – RunService 接管顶层入口
 
-### M4 · UI & Context 对齐
-1. 更新 `context/GameContext.tsx`：监听新的事件通道，维护 `viewState`（HP、手牌、动画队列、message）。  
-2. `components/screens/BattleScreen.tsx` 与各 hooks 改为消费 `viewState` + 事件，而非直接读/写 GameState 的细节字段。  
-3. 为 UI 添加“层级切换”状态（Run map → Level intro → Battle），确保未来能扩展非战斗界面。
+- 实施内容：
+  - 在 `runService.ts` 中完整实现 `IRunService`：
+    - `startRun(meta)`：根据 Meta / 升级信息创建新的 RunState；  
+    - `startNextBattle()`：基于当前 RunState 调用 BattleService；  
+    - `handleBattleResult`：根据 BattleResult 决定是否进入下一关或结束 Run；  
+    - `abortRun()`：中断当前 Run 并返回主菜单。  
+  - UI 层改为只通过 `IRunService` 入口与引擎交互。
+- 测试要求：
+  - 在 `tests/unit/run/runService.test.ts` 中为 RunService 编写单元测试，覆盖：
+    - 新 Run 初始化是否正确；  
+    - 胜利 / 失败 / 连胜等不同 BattleResult 下的 Run 推进逻辑；  
+    - 中断 Run 时的重置行为。  
+  - 在 `tests/integration/runBattleRound.integration.test.ts` 中新增一个轻量级集成测试：从 `startRun` 到打完一场伪 Battle，再回到 Run 层，确认关键状态与事件顺序正确。
 
-### M5 · 清理与文档
-1. 删除旧的 RoundService 中已迁移的逻辑，保留少量桥接层直至完全替换。  
-2. 更新 `doc/turn-by-turn-rule.md`, `doc/environment-card.md`, `doc/change-log.md` 以反映新架构。  
-3. 编写开发者手册：如何通过 RunService/LevelService 编写新关卡或调试 RoundCore。
+### Phase 5 – 清理与文档更新
 
----
-
-## 8. 测试与验证
-- **RoundCore 单元测试**：Hit/Stand、Bust、多环境组合、Penalty 叠加、回合结束事件顺序。
-- **LevelService 集成测试**：使用模拟 RunContext & AI stub，验证回合循环、胜负判定、奖励触发。
-- **RunService 冒烟测试**：启动新 Run、连续完成多关、失败与放弃流程。
-- **UI 回归**：Playwright/手动脚本覆盖关键交互（抽牌、使用道具、惩罚/环境动画）。
-- **回放/Undo**：确认 `GameStore` 仍可以记录历史帧；必要时为 Run/Level/Round 状态序列化添加快照工具。
-
----
-
-## 9. 风险与缓解
-| 风险 | 描述 | 缓解 |
-| --- | --- | --- |
-| 状态拆分导致 Undo/Replay 失效 | GameStore 目前只序列化 `GameState` | 先建立 `GameSnapshotV2`（含 run/level/round 子树），提供向下兼容转换器 |
-| RoundCore 纯函数化破坏动画节奏 | 之前逻辑隐含 `sleep` | LevelService 接管所有延迟/动画触发；RoundCore 只发事件类型，UI 决定动画 |
-| 依赖链复杂（Damage/Penalty/Item） | 多服务互相引用 | 通过依赖注入（接口）+ service container，禁止 RoundCore 直接 import 其他服务 |
-| 当前 hooks 未准备事件流 | 依赖旧字段 | 先提供“兼容 viewState”阶段（老字段由 LevelService 映射），逐步切换 hooks |
-
----
-
-## 10. 交付物清单
-1. `engine/services/runService.ts`（替换 `runLifecycleService.ts`）。  
-2. `engine/services/levelService.ts`（新文件）。  
-3. `engine/services/roundCore/*`（纯函数模块 + 测试）。  
-4. `common/types.ts` 中新增 Run/Level/Round 状态与事件类型。  
-5. `context/GameContext.tsx` 与相关 hooks 更新，`BattleScreen` 适配。  
-6. 更新文档：本计划、流程规范、Change Log。  
-7. 测试报告/脚本：RoundCore 单测、LevelService 集测、冒烟步骤说明。
+- 实施内容：
+  - 删除 / 合并不再需要的旧文件或逻辑：
+    - `penaltyEngine.ts`；  
+    - 顶层 `engine/effects/*` / `engine/rules/*` 中已被迁移的文件；  
+    - 任何已被 run/battle/round 服务替代的旧入口或 helper。  
+  - 更新文档：
+    - 在 `doc/change-log.md` 中记录最终实现与设计之间的差异。
+- 测试要求：
+  - 运行 `tests/**/*` 下的全量单元测试和集成测试，作为合并前的最后检查。  
+  - 保留并维护端到端集成测试用例（`tests/integration/runBattleRound.integration.test.ts`），从 Run 启动到 Run 结束，验证 Environment / Penalty / Item 的行为符合设计。
 
 ---
 
-## 11. 粗略时间评估（以 2 人周为单位，可并行）
-| 阶段 | 预估工期 | 备注 |
-| --- | --- | --- |
-| M1 RoundCore | 2~3 天 | 需要补充测试框架 |
-| M2 LevelService | 3~4 天 | 包含 CombatService 重写 |
-| M3 RunService | 2 天 | 依赖 LevelService 输出 |
-| M4 UI/Context | 3~4 天 | 与设计联调动画 |
-| M5 收尾 | 1~2 天 | 文档 + 清理 |
+## 7. 命名与接口迁移说明
 
-整体约 2.5 周，可根据资源调整并行顺序（RoundCore 与 RunService 可部分同步进行）。
+- 原文档中提到的 `RunServiceContract`、`BattleServiceContract` 等名称，实际落地时统一采用 I 前缀接口命名：  
+  - `RunServiceContract` → `IRunService`  
+  - `BattleServiceContract` → `IBattleService`  
+  - `RoundServiceContract` → `IRoundService`
+- 同理，跨层上下文与结果类型也采用 I 前缀命名：  
+  - `BattleResult` → `IBattleResult`  
+  - `RoundResult` → `IRoundResult`  
+  - `RoundContext` → `IRoundContext`
+- 状态数据结构（RunState / BattleState / RoundState）可以维持无 I 前缀的命名方式。
 
 ---
 
-> 后续若需要更细的任务拆解（例如具体到文件/PR），可在 M1 完成后基于 RoundCore 的实际接口再迭代一次计划。
+## 8. 执行检查清单
+
+- [ ] RunState / BattleState / RoundState 已定义并接入 GameState。  
+- [ ] 已实现 `getXxxState` / `withXxxState` 读写辅助函数。  
+- [ ] 建立 I 前缀命名的接口：IRunService / IBattleService / IRoundService / IBattleRuleService / IItemService。  
+- [ ] RoundService 收缩到 Round 职责，Item 相关逻辑集中到 itemService。  
+- [ ] BattleService 负责环境 / 惩罚 / 伤害结算：  
+      - battleRuleService 合并原 penalty / environment 规则逻辑；  
+      - BattleService 内部根据规则和回合结果计算并应用 HP 变化。  
+- [ ] RunService 取代旧 Run 生命周期与战斗入口。  
+- [ ] 顶层 engine/effects/* 与 engine/rules/* 已清理或迁移。  
+- [ ] 各阶段引入的单元测试和集成测试均已补齐并通过。  
+- [ ] 文档（本文件和 `doc/change-log.md`）与最终实现保持同步。
