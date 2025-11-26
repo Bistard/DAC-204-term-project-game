@@ -8,6 +8,7 @@ import { CardComponent } from '../cards/card';
 import { EnvironmentCardDisplay } from '../cards/EnvironmentCard';
 import { PenaltyCardDisplay } from '../cards/penaltyCard';
 import { useGame } from '../../context/GameContext';
+import { calculateScore } from '../../engine/utils';
 import { ITEMS } from '../../content/items';
 import { ENVIRONMENT_CARDS } from '../../content/environments';
 import { VISUAL_WARN_OFFSET, VISUAL_SAFE_OFFSET, VISUAL_EARLY_OFFSET } from '../../common/constants';
@@ -261,7 +262,7 @@ const DeckTrackerModal: React.FC<{
                 <div className="absolute bottom-3 left-3 w-3 h-3 rounded-full bg-[#1a110d] border border-[#3e2723] shadow-inner"></div>
                 <div className="absolute bottom-3 right-3 w-3 h-3 rounded-full bg-[#1a110d] border border-[#3e2723] shadow-inner"></div>
 
-                <h2 className="text-4xl sm:text-5xl text-[#f3e5ab] font-black tracking-widest western-font drop-shadow-[2px_2px_0_#000] mb-2 uppercase">Dealer's Shoe</h2>
+                <h2 className="text-4xl sm:text-5xl text-[#f3e5ab] font-black tracking-widest western-font drop-shadow-[2px_2px_0_#000] mb-2 uppercase">DECK</h2>
                 <div className="flex items-center gap-6 text-[#8d6e63] font-mono text-xl sm:text-2xl uppercase tracking-wider bg-black/30 px-6 py-1 rounded-full border border-[#3e2723]">
                     <span>Total: 11</span>
                     <span className="text-[#5d4037]">|</span>
@@ -471,17 +472,7 @@ export const Battlefield: React.FC = () => {
     }, [activeItemEffect]);
 
     const calculateScoreLocal = (hand: Card[], target: number) => {
-        let score = 0;
-        let aces = 0;
-        hand.forEach(card => {
-            score += card.value;
-            if (card.isAce) aces += 1;
-        });
-        while (score > target && aces > 0) {
-            score -= 10;
-            aces -= 1;
-        }
-        return score;
+        return calculateScore(hand, target, gameState.environmentRuntime.scoreOptions);
     };
 
     const playerInvOverlap = gameState.player.inventory.length > 5 ? '-100px' : '-80px';

@@ -52,7 +52,7 @@ export const EnvironmentCardDisplay: React.FC<Props> = ({ card, className = '', 
             <div className="border-b-2 border-[#3e2723] pb-2">
                 <p className="text-xl font-bold uppercase text-[#8b0000] western-font tracking-widest">{card.name}</p>
             </div>
-            <p className="text-lg text-[#3e2723] leading-relaxed font-serif font-bold">{card.description}</p>
+            <p className="text-[20px] text-[#3e2723] leading-relaxed font-serif font-bold">{card.description}</p>
             
             {/* Arrow */}
             <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-[8px] border-l-transparent border-r-[8px] border-r-transparent border-t-[8px] border-t-[#3e2723]"></div>

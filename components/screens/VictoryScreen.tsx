@@ -13,9 +13,9 @@ export const VictoryScreen: React.FC = () => {
             <div className="z-10 flex flex-col items-center">
                 <Trophy className="w-40 h-40 text-amber-400 mb-6 animate-bounce drop-shadow-[0_0_20px_rgba(251,191,36,0.8)]" />
                 <h2 className="text-8xl sm:text-9xl font-black mb-8 text-[#f3e5ab] animate-victory-text-in tracking-tighter drop-shadow-2xl western-font">
-                    HAND
+                    YOU
                     <br />
-                    <span className="text-amber-500">WON</span>
+                    <span className="text-amber-500">WON !</span>
                 </h2>
 
                 <div className="animate-fade-in delay-1000 opacity-0 fill-mode-forwards" style={{ animationDelay: '1.5s', animationFillMode: 'forwards' }}>

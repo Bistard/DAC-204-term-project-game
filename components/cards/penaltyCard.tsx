@@ -67,7 +67,7 @@ export const PenaltyCardDisplay: React.FC<Props> = ({ card, runtime, className =
         {/* Tooltip */}
         <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-4 w-60 bg-[#1a0505] border-2 border-[#ef4444] p-4 pixel-corners opacity-0 group-hover:opacity-100 transition-all duration-200 pointer-events-none z-[200] shadow-[0_0_30px_rgba(220,38,38,0.2)]">
              <h3 className="text-lg font-bold uppercase text-[#ef4444] western-font mb-2 border-b border-[#7f1d1d] pb-1">{card.name}</h3>
-             <p className="text-sm text-[#fecaca] font-serif leading-relaxed mb-3">{card.description}</p>
+             <p className="text-[20px] text-[#fecaca] font-serif leading-relaxed mb-3">{card.description}</p>
              
              {streak > 0 && (
                  <div className="bg-[#2a0a0a] border border-[#7f1d1d] p-2 rounded text-center">

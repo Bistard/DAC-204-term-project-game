@@ -81,7 +81,7 @@ export const ItemCard: React.FC<ItemCardProps> = ({ item, onClick, disabled, sty
         <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-4 w-52 bg-[#f3e5ab] text-[#3e2723] p-4 pixel-corners opacity-0 group-hover:opacity-100 transition-all duration-200 pointer-events-none z-[200] shadow-[0_10px_20px_rgba(0,0,0,0.5)] flex flex-col items-center border-2 border-[#5d4037]">
             {/* Paper Texture Overlay */}
             <div className="absolute inset-0 opacity-20 pointer-events-none bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPgo8cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSI0IiBmaWxsPSIjZmZmIi8+CjxyZWN0IHdpZHRoPSIxIiBoZWlnaHQ9IjEiIGZpbGw9IiMwMDAiIG9wYWNpdHk9IjAuMSIvPgo8L3N2Zz4=')]"></div>
-            <p className="relative z-10 text-sm leading-snug font-serif font-bold text-center">
+            <p className="relative z-10 text-lg leading-snug font-serif font-bold text-center">
                 {item.description}
             </p>
             {/* Triangle Pointer */}
