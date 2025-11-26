@@ -1,5 +1,5 @@
 
-import React, { useMemo, useEffect, useState } from 'react';
+import React, { useMemo, useEffect, useState, useCallback } from 'react';
 import { Play, Briefcase, Coins, Heart, Layers, X } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { useGame } from '../../context/GameContext';
@@ -54,9 +54,9 @@ const PixelCloud: React.FC<{ top: string; duration: string; delay: string; scale
         }}
     >
         {/* Pixel Art Cloud Shape using simple divs */}
-        <div className={`w-24 h-8 rounded-full transition-colors duration-[3000ms] ${isNight ? 'bg-[#4c1d95]' : 'bg-white'}`}></div>
-        <div className={`absolute -top-4 left-4 w-12 h-12 rounded-full transition-colors duration-[3000ms] ${isNight ? 'bg-[#4c1d95]' : 'bg-white'}`}></div>
-        <div className={`absolute -top-6 left-10 w-10 h-10 rounded-full transition-colors duration-[3000ms] ${isNight ? 'bg-[#4c1d95]' : 'bg-white'}`}></div>
+        <div className={`w-24 h-8 transition-colors duration-[3000ms] ${isNight ? 'bg-[#4c1d95]' : 'bg-white'}`}></div>
+        <div className={`absolute -top-4 left-4 w-12 h-12 transition-colors duration-[3000ms] ${isNight ? 'bg-[#4c1d95]' : 'bg-white'}`}></div>
+        <div className={`absolute -top-6 left-10 w-10 h-10 transition-colors duration-[3000ms] ${isNight ? 'bg-[#4c1d95]' : 'bg-white'}`}></div>
     </div>
 );
 
@@ -83,6 +83,185 @@ const Bird: React.FC<{ top: string; left: string; duration: string; delay: strin
     </div>
 );
 
+const saloonPosition = 20;
+const Saloon: React.FC<{ isNight: boolean }> = ({ isNight }) => {
+    // Colors
+    const colorWindowLit = "#fbbf24";
+    const colorWindowDark = "#1e1b4b";
+    
+    // Smooth transition for lights
+    const windowColor = isNight ? colorWindowLit : colorWindowDark;
+    const lanternOpacity = isNight ? 1 : 0;
+    
+    return (
+        <div className={`absolute bottom-[23%] right-[5%] sm:right-[${saloonPosition}%] z-10 transition-all duration-[3000ms] ${isNight ? 'brightness-75' : 'brightness-100'} origin-bottom scale-[0.6] sm:scale-100`}>
+            
+            {/* Building Container - Centered */}
+            <div className="relative flex flex-col items-center w-64">
+                
+                {/* --- ROOF / CORNICE (False Front) --- */}
+                {/* Top decorative crest */}
+                <div className="w-40 h-4 bg-[#3e2723] flex justify-center items-end">
+                     <div className="w-32 h-2 bg-[#5d4037]"></div>
+                </div>
+                
+                {/* Sign Board Area */}
+                <div className="w-56 h-12 bg-[#5d4037] border-4 border-[#3e2723] relative flex items-center justify-center shadow-lg z-20">
+                    <div className="absolute inset-0 bg-[repeating-linear-gradient(90deg,transparent,transparent_4px,rgba(0,0,0,0.2)_4px,rgba(0,0,0,0.2)_5px)] opacity-50"></div>
+                    <div className="bg-[#271c19] border-2 border-[#8d6e63] px-3 py-1">
+                        <span className="text-[#f3e5ab] font-bold tracking-[0.4em] text-xs western-font block pt-1">SALOON</span>
+                    </div>
+                </div>
+
+                {/* --- SECOND FLOOR --- */}
+                <div className="w-52 h-24 bg-[#5d4037] border-l-4 border-r-4 border-[#3e2723] relative flex justify-around items-center px-2 z-10">
+                     {/* Horizontal Siding Texture */}
+                     <div className="absolute inset-0 bg-[repeating-linear-gradient(0deg,transparent,transparent_7px,rgba(0,0,0,0.2)_8px)] opacity-40 pointer-events-none"></div>
+                     
+                     {/* Windows */}
+                     {[0, 1, 2].map(i => (
+                         <div key={i} className="relative w-10 h-14 bg-[#3e2723] p-1 shadow-[inset_0_2px_4px_rgba(0,0,0,0.5)]">
+                             {/* Glass */}
+                             <div className="w-full h-full transition-colors duration-[3000ms]" style={{ backgroundColor: windowColor }}>
+                                 {/* Window Pane Cross */}
+                                 <div className="absolute top-1/2 left-0 w-full h-1 bg-[#3e2723]"></div>
+                                 <div className="absolute top-0 left-1/2 h-full w-1 bg-[#3e2723]"></div>
+                                 {/* Reflection Detail (Only visible in day or dark) */}
+                                 <div className="absolute top-1 right-1 w-1 h-3 bg-white opacity-20"></div>
+                                 <div className="absolute top-5 right-2 w-1 h-1 bg-white opacity-20"></div>
+                             </div>
+                             {/* Window Sill */}
+                             <div className="absolute -bottom-1 -left-1 -right-1 h-2 bg-[#4e342e]"></div>
+                         </div>
+                     ))}
+                </div>
+
+                {/* --- PORCH ROOF --- */}
+                <div className="w-64 h-8 bg-[#3e2723] relative z-30 shadow-xl flex items-center justify-center -mt-1">
+                    <div className="w-[98%] h-[80%] bg-[#4e342e] border-b-2 border-[#271c19]"></div>
+                </div>
+
+                {/* --- FIRST FLOOR --- */}
+                <div className="w-56 h-28 bg-[#5d4037] border-l-4 border-r-4 border-[#3e2723] relative flex justify-center items-end pb-0 shadow-[inset_0_20px_20px_rgba(0,0,0,0.5)]">
+                     {/* Shadow from porch roof */}
+                     <div className="absolute top-0 left-0 right-0 h-8 bg-black opacity-30 pointer-events-none z-0"></div>
+                     
+                     {/* Wall Texture */}
+                     <div className="absolute inset-0 bg-[repeating-linear-gradient(0deg,transparent,transparent_7px,rgba(0,0,0,0.2)_8px)] opacity-40 pointer-events-none"></div>
+
+                     {/* Windows 1st Floor */}
+                     <div className="absolute left-4 bottom-8 w-10 h-14 bg-[#3e2723] p-1 z-10">
+                         <div className="w-full h-full transition-colors duration-[3000ms]" style={{ backgroundColor: windowColor }}>
+                             <div className="absolute top-1/2 left-0 w-full h-1 bg-[#3e2723]"></div>
+                             <div className="absolute top-0 left-1/2 h-full w-1 bg-[#3e2723]"></div>
+                         </div>
+                         <div className="absolute -bottom-1 -left-1 -right-1 h-2 bg-[#4e342e]"></div>
+                     </div>
+                     <div className="absolute right-4 bottom-8 w-10 h-14 bg-[#3e2723] p-1 z-10">
+                         <div className="w-full h-full transition-colors duration-[3000ms]" style={{ backgroundColor: windowColor }}>
+                             <div className="absolute top-1/2 left-0 w-full h-1 bg-[#3e2723]"></div>
+                             <div className="absolute top-0 left-1/2 h-full w-1 bg-[#3e2723]"></div>
+                         </div>
+                         <div className="absolute -bottom-1 -left-1 -right-1 h-2 bg-[#4e342e]"></div>
+                     </div>
+
+                     {/* Main Entrance */}
+                     <div className="w-20 h-20 bg-[#271c19] relative z-10 border-t-2 border-x-2 border-[#3e2723] flex justify-center items-end overflow-hidden">
+                         {/* Interior Depth */}
+                         <div className="absolute inset-0 bg-black opacity-60"></div>
+                         <div className="absolute inset-0 transition-colors duration-[3000ms]" style={{ backgroundColor: isNight ? '#fbbf24' : '#000', opacity: isNight ? 0.2 : 0 }}></div>
+
+                         {/* Batwing Doors */}
+                         <div className="w-16 h-14 relative flex justify-between">
+                             {/* Left Door */}
+                             <div className="w-[45%] h-full bg-[#5d4037] border border-[#3e2723] relative origin-left transform hover:rotate-y-12 transition-transform duration-500">
+                                 <div className="w-full h-full border-2 border-dashed border-[#3e2723] opacity-50"></div>
+                             </div>
+                             {/* Right Door */}
+                             <div className="w-[45%] h-full bg-[#5d4037] border border-[#3e2723] relative origin-right transform hover:-rotate-y-12 transition-transform duration-500">
+                                 <div className="w-full h-full border-2 border-dashed border-[#3e2723] opacity-50"></div>
+                             </div>
+                         </div>
+                     </div>
+                </div>
+
+                {/* --- PORCH DECK & POSTS --- */}
+                {/* Posts */}
+                <div className="absolute bottom-4 left-0 w-64 h-24 pointer-events-none z-20 flex justify-between px-2">
+                     <div className="w-2 h-full bg-[#3e2723] relative shadow-[-2px_0_4px_rgba(0,0,0,0.3)]">
+                         {/* Post Highlight */}
+                         <div className="absolute left-0 top-0 w-1 h-full bg-[#5d4037] opacity-50"></div>
+                         {/* Lantern Left */}
+                         <div className="absolute top-2 -right-3 w-3 h-4 bg-[#1a110d] flex items-center justify-center">
+                             <div className="w-1 h-2 bg-yellow-500 transition-opacity duration-[3000ms] animate-pulse" style={{ opacity: lanternOpacity }}></div>
+                         </div>
+                     </div>
+                     <div className="w-2 h-full bg-[#3e2723] relative shadow-[-2px_0_4px_rgba(0,0,0,0.3)]">
+                         {/* Post Highlight */}
+                         <div className="absolute left-0 top-0 w-1 h-full bg-[#5d4037] opacity-50"></div>
+                     </div>
+                     <div className="w-2 h-full bg-[#3e2723] relative shadow-[-2px_0_4px_rgba(0,0,0,0.3)]">
+                         {/* Post Highlight */}
+                         <div className="absolute left-0 top-0 w-1 h-full bg-[#5d4037] opacity-50"></div>
+                         {/* Lantern Right */}
+                         <div className="absolute top-2 -left-3 w-3 h-4 bg-[#1a110d] flex items-center justify-center">
+                             <div className="w-1 h-2 bg-yellow-500 transition-opacity duration-[3000ms] animate-pulse" style={{ opacity: lanternOpacity }}></div>
+                         </div>
+                     </div>
+                </div>
+                
+                {/* Deck Floor */}
+                <div className="w-72 h-4 bg-[#3e2723] relative z-20 shadow-lg border-t border-[#5d4037]">
+                    {/* Wood Planks vertical lines */}
+                    <div className="absolute inset-0 bg-[repeating-linear-gradient(90deg,transparent,transparent_10px,rgba(0,0,0,0.5)_11px)]"></div>
+                </div>
+                
+                {/* Stairs */}
+                <div className="w-48 h-2 bg-[#271c19] mt-0.5"></div>
+                <div className="w-48 h-2 bg-[#3e2723]"></div>
+                
+                {/* Ground Shadow underneath */}
+                <div className="absolute -bottom-2 w-72 h-4 bg-black/40 blur-sm rounded-[100%]"></div>
+            </div>
+        </div>
+    );
+};
+
+type Walker = { id: number; direction: 'left' | 'right' };
+
+const PixelWalker: React.FC<{ id: number; direction: 'left' | 'right'; onComplete: (id: number) => void }> = ({ id, direction, onComplete }) => {
+    // Randomize appearance slightly
+    const skinColor = useMemo(() => ["#dca87e", "#e0c0a8", "#8d5524"][Math.floor(Math.random() * 3)], []);
+    const shirtColor = useMemo(() => ["#ef4444", "#3b82f6", "#eab308", "#fff"][Math.floor(Math.random() * 4)], []);
+    const hatColor = useMemo(() => ["#3e2723", "#1a110d", "#d7ccc8"][Math.floor(Math.random() * 3)], []);
+
+    return (
+        <div 
+            className={`absolute bottom-[23%] z-20 walker-animation ${direction === 'right' ? 'animate-walk-from-right' : 'animate-walk-from-left'}`}
+            onAnimationEnd={() => onComplete(id)}
+        >
+            <div className="relative w-3 h-8 animate-bounce" style={{ animationDuration: '0.4s' }}>
+                 {/* Hat */}
+                 <div className="absolute -top-1 -left-1 w-5 h-1" style={{ backgroundColor: hatColor }}></div>
+                 <div className="absolute -top-3 left-0 w-3 h-2" style={{ backgroundColor: hatColor }}></div>
+                 
+                 {/* Head */}
+                 <div className="absolute top-0 left-0 w-3 h-3" style={{ backgroundColor: skinColor }}></div>
+                 
+                 {/* Torso */}
+                 <div className="absolute top-3 left-0 w-3 h-3" style={{ backgroundColor: shirtColor }}>
+                    {/* Poncho/Vest detail */}
+                    <div className="absolute top-0 left-1 w-1 h-3 bg-black/20"></div>
+                 </div>
+
+                 {/* Legs */}
+                 <div className="absolute top-6 left-0 w-1 h-2 bg-[#1e293b] animate-pulse"></div>
+                 <div className="absolute top-6 right-0 w-1 h-2 bg-[#1e293b] animate-pulse" style={{ animationDelay: '0.2s' }}></div>
+            </div>
+        </div>
+    );
+};
+
 /**
  * @description CSS-generated pixel-art desert scene with a day/night cycle.
  * Updated with low-frequency animated elements
@@ -91,7 +270,8 @@ const Bird: React.FC<{ top: string; left: string; duration: string; delay: strin
 export const MenuScreen: React.FC = () => {
     const { startRun, buyUpgrade, metaState } = useGame();
     const [showUpgrades, setShowUpgrades] = useState(false);
-    const [isNight, setIsNight] = useState(false); // default day
+    const [isNight, setIsNight] = useState(false);
+    const [walkers, setWalkers] = useState<Walker[]>([]);
 
     // Day/Night Cycle Timer (10 seconds per phase)
     useEffect(() => {
@@ -99,6 +279,23 @@ export const MenuScreen: React.FC = () => {
             setIsNight(prev => !prev);
         }, 10000);
         return () => clearInterval(interval);
+    }, []);
+
+    // Walker Spawner
+    useEffect(() => {
+        const interval = setInterval(() => {
+            // Slightly faster spawn cadence with 30% chance every 1.5 seconds
+            if (Math.random() < 0.3) {
+                const id = Date.now();
+                const direction: Walker['direction'] = Math.random() < (2 / 3) ? 'right' : 'left';
+                setWalkers(prev => [...prev, { id, direction }]);
+            }
+        }, 500);
+        return () => clearInterval(interval);
+    }, []);
+
+    const removeWalker = useCallback((id: number) => {
+        setWalkers(prev => prev.filter(w => w.id !== id));
     }, []);
 
     // Generate Stars
@@ -144,7 +341,7 @@ export const MenuScreen: React.FC = () => {
 
     return (
         <div className={`min-h-screen flex flex-col items-center justify-center relative overflow-hidden font-['VT323'] bg-[#0c0a16]`}>
-            {/* Custom Styles for Twinkle */}
+            {/* Custom Styles for Animations */}
             <style>{`
                 @keyframes twinkle {
                     0%, 100% { opacity: 0.3; transform: scale(1); }
@@ -152,6 +349,29 @@ export const MenuScreen: React.FC = () => {
                 }
                 .animate-twinkle {
                     animation: twinkle infinite ease-in-out;
+                }
+                @keyframes walk-from-left {
+                    0% { left: -50px; opacity: 0; }
+                    10% { opacity: 1; }
+                    90% { opacity: 1; }
+                    100% { left: ${100-saloonPosition-5}%; opacity: 0; }
+                }
+                @keyframes walk-from-right {
+                    0% { left: 120%; opacity: 0; }
+                    10% { opacity: 1; }
+                    90% { opacity: 1; }
+                    100% { left: ${100-saloonPosition-5}%; opacity: 0; }
+                }
+                .walker-animation {
+                    animation-duration: 12s;
+                    animation-timing-function: linear;
+                    animation-fill-mode: forwards;
+                }
+                .animate-walk-from-left {
+                    animation-name: walk-from-left;
+                }
+                .animate-walk-from-right {
+                    animation-name: walk-from-right;
                 }
             `}</style>
             
@@ -245,6 +465,17 @@ export const MenuScreen: React.FC = () => {
                 style={{ clipPath: 'polygon(0% 100%, 0% 40%, 15% 70%, 30% 20%, 50% 60%, 70% 30%, 85% 50%, 100% 10%, 100% 100%)' }}
             ></div>
 
+            {/* --- SALOON & WALKERS (Mid-Ground) --- */}
+            
+            {/* Walkers behind the saloon z-index logic handled by structure (Saloon is z-10, Walkers z-20 but fade before overlap really matters visually) */}
+            <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                 {walkers.map(walker => (
+                     <PixelWalker key={walker.id} id={walker.id} direction={walker.direction} onComplete={removeWalker} />
+                 ))}
+            </div>
+            
+            <Saloon isNight={isNight} />
+
             {/* 4. Closer Dunes/Ground (Parallax Layer 2) */}
             <div className={`absolute bottom-0 left-0 right-0 h-[25%] border-t-4 border-[#271c19] ${transitionClass} ${isNight ? 'bg-[#3e2723]' : 'bg-[#d97706]'}`}>
                 <div className="absolute inset-0 opacity-20 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPgo8cmVjdCB3aWR0aD0iMSIgaGVpZ2h0PSIxIiBmaWxsPSIjMDAwIiBvcGFjaXR5PSIwLjMiLz48L3N2Zz4=')]"></div>
@@ -259,13 +490,13 @@ export const MenuScreen: React.FC = () => {
             </div>
 
             {/* Vignette */}
-            <div className="absolute inset-0 pointer-events-none shadow-[inset_0_0_100px_rgba(0,0,0,0.8)]"></div>
-            <div className="absolute inset-0 pointer-events-none bg-[repeating-linear-gradient(0deg,transparent,transparent_2px,#000_3px)] opacity-10"></div>
+            <div className="absolute inset-0 pointer-events-none shadow-[inset_0_0_100px_rgba(0,0,0,0.8)] z-30"></div>
+            <div className="absolute inset-0 pointer-events-none bg-[repeating-linear-gradient(0deg,transparent,transparent_2px,#000_3px)] opacity-10 z-30"></div>
 
 
             {/* --- MAIN CONTENT --- */}
 
-            <div className="w-full max-w-xl z-20 relative flex flex-col items-center">
+            <div className="w-full max-w-xl z-40 relative flex flex-col items-center">
                 
                 {/* Title Section */}
                 <div className="mb-4 relative animate-fade-in z-30">
@@ -365,7 +596,7 @@ export const MenuScreen: React.FC = () => {
 
                         <button
                             onClick={() => setShowUpgrades(false)}
-                            className="absolute top-4 right-4 text-[#8d6e63] hover:text-[#f3e5ab] transition-colors bg-black/40 p-1.5 rounded border border-[#5d4037]"
+                            className="absolute top-4 right-4 text-[#8d6e63] hover:text-[#f3e5ab] transition-colors bg-black/40 p-1.5 rounded border border-[#5d4037] z-[100]"
                         >
                             <X size={24} />
                         </button>
