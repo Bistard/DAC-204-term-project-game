@@ -165,8 +165,6 @@ export interface PenaltyCard {
 export interface Entity {
     hp: number;
     maxHp: number;
-    hand: Card[];
-    score: number;
     shield: number;
 }
 
@@ -183,6 +181,14 @@ export interface EnemyTemplate {
     maxInventory?: number;
 }
 
+export interface PlayerBattleState extends Entity {
+    hand: Card[];
+    score: number;
+    inventory: Item[];
+    maxInventory: number;
+    deckModifier: number;
+}
+
 export interface Enemy extends Entity {
     name: string;
     id: string;
@@ -190,6 +196,8 @@ export interface Enemy extends Entity {
     difficulty: number;
     aiType: EnemyAIProfile;
     description: string;
+    hand: Card[];
+    score: number;
     inventory: Item[];
     maxInventory: number;
 }
@@ -211,8 +219,54 @@ export interface RoundModifierState {
     loserDamageBonus: number;
 }
 
+export interface RoundParticipantState {
+    hand: Card[];
+    score: number;
+    stood: boolean;
+}
+
+export interface RoundState {
+    number: number;
+    turnOwner: TurnOwner;
+    player: RoundParticipantState;
+    enemy: RoundParticipantState | null;
+    modifiers: RoundModifierState;
+}
+
+export type RunStatus = 'IDLE' | 'IN_PROGRESS' | 'AWAITING_REWARD' | 'COMPLETED';
+
+export interface RunState {
+    level: number;
+    status: RunStatus;
+    rewardOptions: Item[];
+    pickedRewardIndices: number[];
+    goldEarnedThisLevel: number;
+}
+
+export interface BattleState {
+    targetScore: number;
+    baseTargetScore: number;
+    activeEnvironment: EnvironmentCard[];
+    environmentRuntime: EnvironmentRuntimeState;
+    activePenalty: PenaltyCard | null;
+    penaltyRuntime: PenaltyRuntimeState;
+    deck: Card[];
+    discardPile: Card[];
+    environmentDisabledCards: Card[];
+    player: PlayerBattleState;
+    enemy: Enemy | null;
+}
+
 export interface GameState {
     phase: GamePhase;
+    message: string;
+    run: RunState;
+    battle: BattleState | null;
+    round: RoundState | null;
+    /**
+     * Phase 1 compatibility fields. These mirror the data that now lives inside run/battle/round slices.
+     * They will be removed in a later phase once all call sites migrate.
+     */
     turnOwner: TurnOwner;
     playerStood: boolean;
     enemyStood: boolean;
@@ -223,18 +277,13 @@ export interface GameState {
     activeEnvironment: EnvironmentCard[];
     environmentRuntime: EnvironmentRuntimeState;
     activePenalty: PenaltyCard | null;
-    player: Entity & {
-        inventory: Item[];
-        maxInventory: number;
-        deckModifier: number;
-    };
+    player: PlayerBattleState;
     enemy: Enemy | null;
     deck: Card[];
     discardPile: Card[];
     environmentDisabledCards: Card[];
     roundModifiers: RoundModifierState;
     penaltyRuntime: PenaltyRuntimeState;
-    message: string;
     rewardOptions: Item[];
     pickedRewardIndices: number[];
     goldEarnedThisLevel: number;

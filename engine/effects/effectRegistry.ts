@@ -573,10 +573,13 @@ export class EffectRegistry {
         this.deps.store.updateState(
             prev => ({
                 ...prev,
-                goldEarnedThisLevel:
+                run:
                     context.actor === 'PLAYER'
-                        ? prev.goldEarnedThisLevel + bonus
-                        : prev.goldEarnedThisLevel,
+                        ? {
+                              ...prev.run,
+                              goldEarnedThisLevel: prev.run.goldEarnedThisLevel + bonus,
+                          }
+                        : prev.run,
             }),
             this.deps.createMeta('effect.gold', 'Awarded gold bonus', { amount: bonus })
         );

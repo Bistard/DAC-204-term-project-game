@@ -7,10 +7,11 @@ import {
 import { EVENT_EFFECTS, GameEventTrigger } from '../../content/events';
 import { EventBus } from '../eventBus';
 import { GameStore } from '../state/gameStore';
-import { GamePhase, Item, MetaState, StoreUpdateMeta, TurnOwner } from '../../common/types';
+import { Enemy, GamePhase, Item, MetaState, PlayerBattleState, StoreUpdateMeta, TurnOwner } from '../../common/types';
 import { getRandomItems } from '../utils';
 import { MetaUpdater } from '../../common/types';
 import { RunLifecycleService } from './runLifecycleService';
+import { withBattleState } from '../state/gameState';
 import { EffectRegistry } from '../effects/effectRegistry';
 
 interface RewardServiceDeps {
@@ -35,11 +36,17 @@ export class RewardService {
 
     async handleVictory() {
         this.store.updateState(
-            prev => ({
-                ...prev,
-                phase: GamePhase.VICTORY,
-                enemy: prev.enemy ? { ...prev.enemy, hp: 0 } : prev.enemy,
-            }),
+            prev => {
+                if (!prev.battle) return prev;
+                const nextState = withBattleState(prev, battle => ({
+                    ...battle,
+                    enemy: battle.enemy ? { ...battle.enemy, hp: 0 } : battle.enemy,
+                }));
+                return {
+                    ...nextState,
+                    phase: GamePhase.VICTORY,
+                };
+            },
             this.meta('victory', 'Enemy defeated')
         );
 
@@ -51,8 +58,12 @@ export class RewardService {
             prev => ({
                 ...prev,
                 phase: GamePhase.REWARD,
-                rewardOptions: getRandomItems(REWARD_POOL_SIZE),
-                pickedRewardIndices: [],
+                run: {
+                    ...prev.run,
+                    status: 'AWAITING_REWARD',
+                    rewardOptions: getRandomItems(REWARD_POOL_SIZE),
+                    pickedRewardIndices: [],
+                },
                 message: 'Enemy Defeated!',
             }),
             this.meta('phase.reward', 'Enter reward phase')
@@ -62,20 +73,32 @@ export class RewardService {
     pickReward(item: Item, index: number) {
         const snapshot = this.store.snapshot;
         if (snapshot.state.phase !== GamePhase.REWARD) return;
-        if (snapshot.state.pickedRewardIndices.includes(index)) return;
-        if (snapshot.state.pickedRewardIndices.length >= REWARD_PICK_LIMIT) return;
+        if (snapshot.state.run.pickedRewardIndices.includes(index)) return;
+        if (snapshot.state.run.pickedRewardIndices.length >= REWARD_PICK_LIMIT) return;
 
         this.store.updateState(
             prev => {
-                const isFull = prev.player.inventory.length >= prev.player.maxInventory;
-                if (isFull) return prev;
+                if (prev.phase !== GamePhase.REWARD || !prev.battle) return prev;
+                const run = prev.run;
+                if (run.pickedRewardIndices.includes(index)) return prev;
+                if (run.pickedRewardIndices.length >= REWARD_PICK_LIMIT) return prev;
+
+                const player = prev.battle.player;
+                if (player.inventory.length >= player.maxInventory) return prev;
+
+                const withItem = withBattleState(prev, battle => ({
+                    ...battle,
+                    player: {
+                        ...battle.player,
+                        inventory: [...battle.player.inventory, item],
+                    },
+                }));
 
                 return {
-                    ...prev,
-                    pickedRewardIndices: [...prev.pickedRewardIndices, index],
-                    player: {
-                        ...prev.player,
-                        inventory: [...prev.player.inventory, item],
+                    ...withItem,
+                    run: {
+                        ...withItem.run,
+                        pickedRewardIndices: [...withItem.run.pickedRewardIndices, index],
                     },
                 };
             },
@@ -87,24 +110,17 @@ export class RewardService {
         const snapshot = this.store.snapshot;
         const meta = this.deps.getMetaState();
         const lifecycleState = this.runLifecycle.prepareNextLevel(snapshot.state, meta);
-        const nextLevelState = {
-            ...lifecycleState,
-            goldEarnedThisLevel: 0,
-            rewardOptions: [],
-            pickedRewardIndices: [],
-        };
-
         this.store.setState(
-            nextLevelState,
-            this.meta('next-level', 'Prepare next level', { level: nextLevelState.runLevel })
+            lifecycleState,
+            this.meta('next-level', 'Prepare next level', { level: lifecycleState.run.level })
         );
-        if (nextLevelState.activePenalty) {
+        if (lifecycleState.battle?.activePenalty) {
             this.eventBus.emit({
                 type: 'penalty.card',
                 payload: {
-                    card: nextLevelState.activePenalty,
+                    card: lifecycleState.battle.activePenalty,
                     state: 'DRAWN',
-                    detail: `Level ${nextLevelState.runLevel} penalty selected.`,
+                    detail: `Level ${lifecycleState.run.level} penalty selected.`,
                 },
             });
         }
@@ -154,24 +170,47 @@ export class RewardService {
     }
 
     applyEnvironmentPerfectReward(actor: TurnOwner) {
-        const drawCount = this.store.snapshot.state.environmentRuntime.rewardHooks.perfectItemDraw;
+        const battle = this.store.snapshot.state.battle;
+        const drawCount = battle?.environmentRuntime.rewardHooks.perfectItemDraw ?? 0;
         if (drawCount <= 0) return;
         this.store.updateState(
             prev => {
-                const entityKey = actor === 'PLAYER' ? 'player' : 'enemy';
-                const entity = prev[entityKey];
+                if (!prev.battle) return prev;
+                const battle = prev.battle;
+                const entity = actor === 'PLAYER' ? battle.player : battle.enemy;
                 if (!entity) return prev;
                 const slots = entity.maxInventory - entity.inventory.length;
                 if (slots <= 0) return prev;
                 const grant = Math.min(drawCount, slots);
                 const newItems = getRandomItems(grant);
+                const withRewards = withBattleState(prev, current => {
+                    if (actor === 'PLAYER') {
+                        const playerEntity = entity as PlayerBattleState;
+                        return {
+                            ...current,
+                            player: {
+                                ...playerEntity,
+                                inventory: [...playerEntity.inventory, ...newItems],
+                            },
+                        };
+                    }
+                    const enemyEntity = entity as Enemy;
+                    return {
+                        ...current,
+                        enemy: enemyEntity
+                            ? {
+                                  ...enemyEntity,
+                                  inventory: [...enemyEntity.inventory, ...newItems],
+                              }
+                            : null,
+                    };
+                });
+
                 return {
-                    ...prev,
-                    [entityKey]: {
-                        ...entity,
-                        inventory: [...entity.inventory, ...newItems],
-                    },
-                    message: `${actor === 'PLAYER' ? 'You' : 'Enemy'} gained ${grant} item card${grant > 1 ? 's' : ''} for a Perfect.`,
+                    ...withRewards,
+                    message: `${
+                        actor === 'PLAYER' ? 'You' : 'Enemy'
+                    } gained ${grant} item card${grant > 1 ? 's' : ''} for a Perfect.`,
                 };
             },
             this.meta('reward.envPerfect', 'Environment perfect reward granted', { actor, amount: drawCount })

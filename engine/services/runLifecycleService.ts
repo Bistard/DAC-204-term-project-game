@@ -1,13 +1,20 @@
-import { STARTING_HP, TARGET_SCORE } from '../../common/constants';
+import { TARGET_SCORE } from '../../common/constants';
 import { GamePhase, GameState, MetaState } from '../../common/types';
-import { createDefaultPenaltyRuntime, createDefaultRoundModifiers, createInitialGameState } from '../state/gameState';
 import {
-    applyEnvironmentRules,
+    attachLegacyState,
+    createDefaultPenaltyRuntime,
+    createInitialGameState,
+    createInitialRoundState,
+    createPlayerBattleState,
+} from '../state/gameState';
+import {
+    applyEnvironmentRulesToBattle,
     createDeck,
     getRandomEnemy,
     getRandomEnvironment,
     getRandomPenaltyCard,
 } from '../utils';
+import { createEmptyEnvironmentRuntime } from '../rules/environmentRuleEngine';
 
 export class RunLifecycleService {
     startNewRun(meta: MetaState): GameState {
@@ -15,66 +22,75 @@ export class RunLifecycleService {
         const envCards = getRandomEnvironment(this.getEnvironmentCount(1));
         const penaltyCard = getRandomPenaltyCard();
         const deck = createDeck();
-        const restoredHp = STARTING_HP + meta.upgrades.hpLevel;
+        const enemy = getRandomEnemy(1);
 
-        return applyEnvironmentRules({
-            ...baseState,
-            phase: GamePhase.BATTLE,
-            runLevel: 1,
-            roundCount: 1,
-            deck,
-            discardPile: [],
-            player: {
-                ...baseState.player,
-                hp: restoredHp,
-                maxHp: restoredHp,
-                hand: [],
-                score: 0,
-                shield: 0,
-            },
-            enemy: getRandomEnemy(1),
+        const battle = applyEnvironmentRulesToBattle({
+            targetScore: TARGET_SCORE,
+            baseTargetScore: TARGET_SCORE,
             activeEnvironment: envCards,
+            environmentRuntime: createEmptyEnvironmentRuntime(),
             activePenalty: penaltyCard,
             penaltyRuntime: createDefaultPenaltyRuntime(),
-            turnOwner: 'PLAYER',
+            deck,
+            discardPile: [],
+            environmentDisabledCards: [],
+            player: createPlayerBattleState(meta),
+            enemy,
+        });
+        const round = createInitialRoundState(1, Boolean(enemy));
+
+        return attachLegacyState({
+            ...baseState,
+            phase: GamePhase.BATTLE,
             message: 'Run started!',
+            run: {
+                level: 1,
+                status: 'IN_PROGRESS',
+                rewardOptions: [],
+                pickedRewardIndices: [],
+                goldEarnedThisLevel: 0,
+            },
+            battle,
+            round,
         });
     }
 
     prepareNextLevel(currentState: GameState, meta: MetaState): GameState {
-        const nextLevel = currentState.runLevel + 1;
+        const nextLevel = currentState.run.level + 1;
         const envCards = getRandomEnvironment(this.getEnvironmentCount(nextLevel));
         const penaltyCard = getRandomPenaltyCard();
         const deck = createDeck();
-        const restoredHp = STARTING_HP + meta.upgrades.hpLevel;
+        const enemy = getRandomEnemy(nextLevel);
 
-        return applyEnvironmentRules({
-            ...currentState,
-            phase: GamePhase.BATTLE,
-            runLevel: nextLevel,
-            roundCount: 1,
+        const battle = applyEnvironmentRulesToBattle({
             targetScore: TARGET_SCORE,
             baseTargetScore: TARGET_SCORE,
+            activeEnvironment: envCards,
+            environmentRuntime: createEmptyEnvironmentRuntime(),
+            activePenalty: penaltyCard,
+            penaltyRuntime: createDefaultPenaltyRuntime(),
             deck,
             discardPile: [],
             environmentDisabledCards: [],
-            playerStood: false,
-            enemyStood: false,
-            turnOwner: 'PLAYER',
-            player: {
-                ...currentState.player,
-                hp: restoredHp,
-                maxHp: restoredHp,
-                hand: [],
-                score: 0,
-                shield: 0,
-            },
-            enemy: getRandomEnemy(nextLevel),
-            activeEnvironment: envCards,
-            activePenalty: penaltyCard,
-            penaltyRuntime: createDefaultPenaltyRuntime(),
-            roundModifiers: createDefaultRoundModifiers(),
+            player: createPlayerBattleState(meta),
+            enemy,
+        });
+        const round = createInitialRoundState(1, Boolean(enemy));
+
+        return attachLegacyState({
+            ...currentState,
+            phase: GamePhase.BATTLE,
             message: `Level ${nextLevel} Started.`,
+            run: {
+                ...currentState.run,
+                level: nextLevel,
+                status: 'IN_PROGRESS',
+                rewardOptions: [],
+                pickedRewardIndices: [],
+                goldEarnedThisLevel: 0,
+            },
+            battle,
+            round,
         });
     }
 

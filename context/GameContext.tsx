@@ -319,8 +319,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const gameState = snapshot.state;
         return {
             gameState,
-            rewardOptions: gameState.rewardOptions,
-            pickedIndices: gameState.pickedRewardIndices,
+            rewardOptions: gameState.run.rewardOptions,
+            pickedIndices: gameState.run.pickedRewardIndices,
             visualEffect,
             damageNumbers,
             isDealing: snapshot.flags.isDealing,
@@ -335,7 +335,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             visibleEnvCount,
             penaltyRevealed,
             metaState,
-            goldEarnedThisLevel: gameState.goldEarnedThisLevel,
+            goldEarnedThisLevel: gameState.run.goldEarnedThisLevel,
             lastPenaltyEvent,
             isBattleExiting: snapshot.flags.isBattleExiting,
             startRun,

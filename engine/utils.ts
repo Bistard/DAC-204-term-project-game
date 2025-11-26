@@ -1,5 +1,6 @@
 
 import {
+    BattleState,
     Card,
     Suit,
     Item,
@@ -7,7 +8,6 @@ import {
     EnvironmentCard,
     ItemDefinition,
     EnemyTemplate,
-    GameState,
     PenaltyCard,
     ScoreOptions,
 } from '../common/types';
@@ -201,7 +201,7 @@ export const getRandomEnemy = (level: number): Enemy => {
  * Currently only adjusts the target score, but centralized here so both
  * CombatService and RewardService can stay in sync.
  */
-export const applyEnvironmentRules = (state: GameState): GameState => {
+export const applyEnvironmentRulesToBattle = (state: BattleState): BattleState => {
     const runtime = buildEnvironmentRuntime(state.activeEnvironment ?? []);
     const targetScore = runtime.targetRule?.value ?? TARGET_SCORE;
     return {

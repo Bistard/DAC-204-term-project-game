@@ -1,3 +1,10 @@
+#### [2025-11-27]
+##### **Refactor**
+- 建立 Run / Battle / Round 独立状态切片，并通过 `attachLegacyState` 维持旧字段兼容
+- Combat / Reward / Effect 等核心服务切换到新状态切片读取逻辑，避免直接读写顶层 GameState 混杂字段
+- 引入 Vitest 并新增 `tests/state/gameState.test.ts`，覆盖状态同步与兼容逻辑
+##### **Chore**
+- 新增 `npm test`（Vitest）脚本
 #### [2025-11-26]
 ##### **Feature**
 - 教程页面（2页）

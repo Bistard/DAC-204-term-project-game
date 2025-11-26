@@ -12,6 +12,7 @@ import { DamageService } from './damageService';
 import { PenaltyEngine } from './penaltyEngine';
 import { CreateMetaFn } from './commonService';
 import { EffectRegistry } from '../effects/effectRegistry';
+import { withBattleState, withRoundState } from '../state/gameState';
 
 interface CombatServiceDeps {
     store: GameStore;
@@ -86,8 +87,11 @@ export class CombatService {
     async hit(actor: TurnOwner) {
         const snapshot = this.store.snapshot;
         if (snapshot.flags.isDealing || snapshot.state.phase !== GamePhase.BATTLE) return;
-        if (actor === 'PLAYER' && snapshot.state.turnOwner !== 'PLAYER') return;
-        if (actor === 'ENEMY' && (!snapshot.state.enemy || snapshot.state.turnOwner !== 'ENEMY')) return;
+        const round = snapshot.state.round;
+        const battle = snapshot.state.battle;
+        if (!round || !battle) return;
+        if (actor === 'PLAYER' && round.turnOwner !== 'PLAYER') return;
+        if (actor === 'ENEMY' && (!battle.enemy || round.turnOwner !== 'ENEMY')) return;
 
         this.roundService.emitHandAction(actor, 'HIT', 1000);
 
@@ -104,17 +108,25 @@ export class CombatService {
     stand(actor: TurnOwner) {
         const snapshot = this.store.snapshot;
         if (snapshot.state.phase !== GamePhase.BATTLE) return;
+        if (!snapshot.state.round) return;
 
         this.roundService.emitHandAction(actor, 'STAND', 800);
         this.store.updateState(
             prev => {
-                const isPlayer = actor === 'PLAYER';
-                const nextTurnOwner: TurnOwner = isPlayer ? 'ENEMY' : 'PLAYER';
+                if (!prev.round) return prev;
+                const nextTurnOwner: TurnOwner = actor === 'PLAYER' ? 'ENEMY' : 'PLAYER';
+
                 return {
-                    ...prev,
-                    playerStood: isPlayer ? true : prev.playerStood,
-                    enemyStood: !isPlayer ? true : prev.enemyStood,
-                    turnOwner: nextTurnOwner,
+                    ...withRoundState(prev, round => ({
+                        ...round,
+                        turnOwner: nextTurnOwner,
+                        player:
+                            actor === 'PLAYER' ? { ...round.player, stood: true } : round.player,
+                        enemy:
+                            actor === 'ENEMY' && round.enemy
+                                ? { ...round.enemy, stood: true }
+                                : round.enemy,
+                    })),
                     message: `${actor} stands.`,
                 };
             },
@@ -126,9 +138,12 @@ export class CombatService {
     async useItem(index: number, actor: TurnOwner) {
         const snapshot = this.store.snapshot;
         if (snapshot.flags.isDealing || snapshot.state.phase !== GamePhase.BATTLE) return;
-        if (snapshot.state.turnOwner !== actor) return;
-        if (snapshot.state.environmentRuntime.itemLocks.disableUsage) return;
-        const entity = actor === 'PLAYER' ? snapshot.state.player : snapshot.state.enemy;
+        const round = snapshot.state.round;
+        const battle = snapshot.state.battle;
+        if (!round || !battle) return;
+        if (round.turnOwner !== actor) return;
+        if (battle.environmentRuntime.itemLocks.disableUsage) return;
+        const entity = actor === 'PLAYER' ? battle.player : battle.enemy;
         if (!entity || !entity.inventory[index]) return;
         const item = entity.inventory[index];
 
@@ -138,19 +153,48 @@ export class CombatService {
 
         this.store.updateState(
             prev => {
-                const entityKey = actor === 'PLAYER' ? 'player' : 'enemy';
-                const current = prev[entityKey]!;
-                if (!current.inventory[index]) return prev;
-                const newInventory = current.inventory.filter((_, idx) => idx !== index);
+                if (!prev.battle || !prev.round) return prev;
+                const hasItem =
+                    actor === 'PLAYER'
+                        ? Boolean(prev.battle.player.inventory[index])
+                        : Boolean(prev.battle.enemy?.inventory[index]);
+                if (!hasItem) return prev;
 
-                return {
-                    ...prev,
-                    [entityKey]: {
-                        ...current,
-                        inventory: newInventory,
-                    },
-                    ...(actor === 'PLAYER' ? { enemyStood: false } : { playerStood: false }),
-                };
+                const withoutItem = withBattleState(prev, battleState => {
+                    const inventory =
+                        actor === 'PLAYER'
+                            ? battleState.player.inventory.filter((_, idx) => idx !== index)
+                            : battleState.enemy
+                            ? battleState.enemy.inventory.filter((_, idx) => idx !== index)
+                            : [];
+                    if (actor === 'PLAYER') {
+                        return {
+                            ...battleState,
+                            player: {
+                                ...battleState.player,
+                                inventory,
+                            },
+                        };
+                    }
+                    return {
+                        ...battleState,
+                        enemy: battleState.enemy
+                            ? { ...battleState.enemy, inventory }
+                            : battleState.enemy,
+                    };
+                });
+
+                return withRoundState(withoutItem, roundState => ({
+                    ...roundState,
+                    enemy:
+                        actor === 'PLAYER' && roundState.enemy
+                            ? { ...roundState.enemy, stood: false }
+                            : roundState.enemy,
+                    player:
+                        actor === 'ENEMY'
+                            ? { ...roundState.player, stood: false }
+                            : roundState.player,
+                }));
             },
             this.createMeta('item.consume', `${actor} used ${item.name}`, { actor, itemId: item.id })
         );
@@ -166,28 +210,30 @@ export class CombatService {
         if (snapshot.state.phase !== GamePhase.BATTLE) {
             return;
         }
+        const round = snapshot.state.round;
+        if (!round) return;
+
+        const playerStood = round.player.stood;
+        const enemyStood = round.enemy ? round.enemy.stood : true;
+        const turnOwner = round.turnOwner;
 
         if (
             snapshot.flags.isProcessingAI &&
-            (snapshot.state.turnOwner !== 'ENEMY' || snapshot.state.enemyStood || snapshot.flags.isDealing)
+            (turnOwner !== 'ENEMY' || enemyStood || snapshot.flags.isDealing)
         ) {
             this.aiService.cancelProcessing();
         }
 
-        if (
-            snapshot.state.playerStood &&
-            snapshot.state.enemyStood &&
-            !snapshot.flags.isResolvingRound
-        ) {
+        if (playerStood && enemyStood && !snapshot.flags.isResolvingRound) {
             this.roundService.resolveRound();
             return;
         }
 
         if (
-            snapshot.state.turnOwner === 'ENEMY' &&
+            turnOwner === 'ENEMY' &&
             !snapshot.flags.isProcessingAI &&
             !snapshot.flags.isDealing &&
-            !snapshot.state.enemyStood
+            !enemyStood
         ) {
             this.aiService.queueTurn();
         }
