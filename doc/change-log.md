@@ -9,6 +9,12 @@
   - 新增 `PenaltyEngine`，集中管理 `PenaltyRuntimeState` 与惩罚卡 fallback 逻辑，`RoundService` 只需下发上下文即可获得伤害/治疗结果。
   - `RoundService`、`ItemEffectService`、Combat 管线全面改用 Damage/Penalty Engine，删除散落的 HP/护盾写操作并共享统一日志/事件播报。
   - 抽离 `CreateMetaFn` 到 `engine/services/serviceTypes.ts`，便于多个服务共用统一的日志工厂。
+- 重构三：
+  - Integrate `EffectRegistry` into Combat, ItemEffect, and Reward Services
+  - Added `EffectRegistry` to `CombatService` to manage item effects more efficiently.
+  - Refactored `ItemEffectService` to utilize `EffectRegistry` for executing item effects.
+  - Updated `RewardService` to bind `EffectRegistry` and apply event effects through it.
+  - Modified `roundService` to await event trigger application for perfect scores.
 #### [2025-11-25]
 ##### **Feature**
 - 重新设计主页美术

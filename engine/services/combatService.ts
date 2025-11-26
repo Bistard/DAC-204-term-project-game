@@ -11,6 +11,7 @@ import { RunLifecycleService } from './runLifecycleService';
 import { DamageService } from './damageService';
 import { PenaltyEngine } from './penaltyEngine';
 import { CreateMetaFn } from './commonService';
+import { EffectRegistry } from '../effects/effectRegistry';
 
 interface CombatServiceDeps {
     store: GameStore;
@@ -28,6 +29,7 @@ export class CombatService {
     private aiService: AiService;
     private damageService: DamageService;
     private penaltyEngine: PenaltyEngine;
+    private effectRegistry: EffectRegistry;
 
     constructor(private deps: CombatServiceDeps) {
         this.store = deps.store;
@@ -54,13 +56,17 @@ export class CombatService {
             createMeta,
             onRoundReady: () => this.evaluateFlow(),
         });
-        this.itemEffects = new ItemEffectService({
+        this.effectRegistry = new EffectRegistry({
             store: this.store,
             eventBus: this.eventBus,
             roundService: this.roundService,
             damageService: this.damageService,
             createMeta,
         });
+        this.itemEffects = new ItemEffectService({
+            effectRegistry: this.effectRegistry,
+        });
+        this.deps.rewardService.bindEffectRegistry(this.effectRegistry);
         this.aiService = new AiService({
             store: this.store,
             createMeta,

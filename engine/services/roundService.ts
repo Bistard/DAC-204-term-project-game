@@ -433,7 +433,7 @@ export class RoundService {
         const enemyPerfect = snapshot.state.enemy ? !enemyBust && enemyScore === snapshot.state.targetScore : false;
 
         if (context.result === 'player_win' && playerPerfect) {
-            this.deps.rewardService.applyEventTrigger('PERFECT_SCORE');
+            await this.deps.rewardService.applyEventTrigger('PERFECT_SCORE');
         }
         if (playerPerfect) {
             this.deps.rewardService.applyEnvironmentPerfectReward('PLAYER');
