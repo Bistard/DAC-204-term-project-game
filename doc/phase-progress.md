@@ -39,3 +39,8 @@ Running notes for the Run/Battle/Round refactor phases. Dates in ISO format.
 - Shared rule utilities have been relocated to `engine/battle/rules/environmentRuleEngine.ts`, with placeholder files for `IBattleRuleService`, `BattleRuleService`, and `penaltyRuleEngine.ts` to host future logic.
 - A thin adapter `engine/run/RunService.ts` now composes the legacy `CombatService` + `RewardService` through the `IRunService` facade; `engine/gameEngine.ts` depends on this interface instead of the raw services, preserving existing external APIs while isolating run-level commands.
 - Added `engine/run/__tests__/runService.test.ts` (Vitest) to prove the adapter delegates to the correct underlying services, keeping regression coverage in place as the wiring shifts.
+
+## Stage 3 Deliverables (Round & Item Service Migration) - 2025-11-26
+- Moved the full `RoundService` implementation into `engine/round/RoundService.ts`, updated all consumers (`CombatService`, `AiService`, test fixtures, etc.) to import from the new location, and ensured the dependency on `RewardService` resolves through `engine/battle/rewards/RewardService`.
+- Relocated `ItemEffectService` into `engine/round/items/ItemService.ts`, fixed import roots (`../../eventBus`, `../../../common/types`, etc.), and rewired `CombatService` plus the smoke tests to depend on the new module path.
+- Vacuumed up the old stub re-exports so `engine/services/` no longer shadows round/item logic; Vitest smoke suites (`engine/services/__tests__/roundService.smoke.test.ts`, `itemEffectService.smoke.test.ts`) were refreshed to cover the new import graph and continue locking current behavior.

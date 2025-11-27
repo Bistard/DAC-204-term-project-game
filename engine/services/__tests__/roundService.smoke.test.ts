@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { GamePhase } from '../../../common/types';
 import { createStoreBundle } from './serviceTestUtils';
-import { RoundService } from '../roundService';
+import { RoundService } from '../../round/RoundService';
 
 const createRoundService = () => {
     const bundle = createStoreBundle();

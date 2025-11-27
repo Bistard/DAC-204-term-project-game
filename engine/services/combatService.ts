@@ -4,8 +4,8 @@ import { GameStore } from '../state/gameStore';
 import { GamePhase, Item, MetaState, StoreUpdateMeta, TurnOwner } from '../../common/types';
 import { sleep } from '../utils';
 import { RewardService } from './rewardService';
-import { RoundService, CreateMetaFn } from './roundService';
-import { ItemEffectService } from './itemEffectService';
+import { RoundService, CreateMetaFn } from '../round/RoundService';
+import { ItemEffectService } from '../round/items/ItemService';
 import { AiService } from './aiService';
 
 interface CombatServiceDeps {
