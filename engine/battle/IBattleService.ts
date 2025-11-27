@@ -1,5 +1,6 @@
 import { TurnOwner } from '../../common/types';
 import { BattleContext } from './BattleContext';
+import { IBattleResult, IRoundResult } from '../state/results';
 
 /**
  * Facade for a single Battle lifecycle. Stage 2 only defines the contract;
@@ -12,4 +13,6 @@ export interface IBattleService {
     stand(actor: TurnOwner): void;
     useItem(index: number, actor: TurnOwner): Promise<void> | void;
     evaluateFlow(): void;
+    getRoundResults(): IRoundResult[];
+    setBattleResultHandler(handler: (result: IBattleResult) => void): void;
 }

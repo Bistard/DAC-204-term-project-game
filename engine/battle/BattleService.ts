@@ -18,6 +18,10 @@ import { IAiService } from './ai/IAiService';
 import { AiService } from './ai/AiService';
 import { BattleContext } from './BattleContext';
 import { createDefaultPenaltyRuntime, createDefaultRoundModifiers } from '../state/gameState';
+import { IBattleResult, IRoundResult, cloneRoundResult, createDefaultBattleResult } from '../state/results';
+import { BattleRuleService } from './rules/BattleRuleService';
+import { BattleRuleState, createDefaultBattleRuleState } from './rules/BattleRuleState';
+import { IBattleRuleService } from './rules/IBattleRuleService';
 
 interface BattleServiceDeps {
     store: GameStore;
@@ -32,10 +36,17 @@ export class BattleService implements IBattleService {
     private roundService: RoundService;
     private itemEffects: ItemEffectService;
     private aiService: IAiService;
+    private battleRuleService: IBattleRuleService;
+    private battleRuleState: BattleRuleState = createDefaultBattleRuleState();
+    private roundResults: IRoundResult[] = [];
+    private battleStartSnapshot: { playerHp: number; enemyHp: number } | null = null;
+    private battleResultHandler?: (result: IBattleResult) => void;
+    private battleConcluded = false;
 
     constructor(private deps: BattleServiceDeps) {
         this.store = deps.store;
         this.eventBus = deps.eventBus;
+        this.battleRuleService = new BattleRuleService();
 
         const createMeta: CreateMetaFn = this.createMeta.bind(this);
         this.roundService = new RoundService({
@@ -45,15 +56,27 @@ export class BattleService implements IBattleService {
             rewardService: this.deps.rewardService,
             createMeta,
             onRoundReady: () => this.evaluateFlow(),
+            onRoundComplete: result => this.onRoundComplete(result),
         });
         this.itemEffects = new ItemEffectService({
-            store: this.store,
-            eventBus: this.eventBus,
             roundService: this.roundService,
-            createMeta,
         });
+        const getBattleView = () => {
+            const state = this.store.snapshot.state;
+            return {
+                turnOwner: state.turnOwner,
+                enemy: state.enemy,
+                targetScore: state.targetScore,
+                environmentRuntime: state.environmentRuntime,
+            };
+        };
         this.aiService = new AiService({
-            store: this.store,
+            getBattleView,
+            updateProcessingFlag: (value, meta) =>
+                this.store.updateFlags(
+                    flags => ({ ...flags, isProcessingAI: value }),
+                    meta
+                ),
             createMeta,
             onHit: () => this.hit('ENEMY'),
             onStand: () => this.stand('ENEMY'),
@@ -62,6 +85,13 @@ export class BattleService implements IBattleService {
 
     startBattle(context: BattleContext) {
         const baseState = this.store.snapshot.state;
+        this.roundResults = [];
+        this.battleConcluded = false;
+        this.battleStartSnapshot = {
+            playerHp: context.playerHp,
+            enemyHp: context.enemy.hp,
+        };
+        this.battleRuleState = this.battleRuleService.initialize(context.environment, context.penalty);
         const applied = applyEnvironmentRules({
             ...baseState,
             phase: GamePhase.BATTLE,
@@ -219,11 +249,54 @@ export class BattleService implements IBattleService {
         }
     }
 
+    getRoundResults(): IRoundResult[] {
+        return this.roundResults.map(cloneRoundResult);
+    }
+
+    setBattleResultHandler(handler: (result: IBattleResult) => void) {
+        this.battleResultHandler = handler;
+    }
+
     private emitPenaltyEvent(card: PenaltyCard, state: 'DRAWN' | 'APPLIED', detail?: string) {
         this.eventBus.emit({
             type: 'penalty.card',
             payload: { card, state, detail },
         });
+    }
+
+    private onRoundComplete(result: IRoundResult) {
+        this.roundResults.push(cloneRoundResult(result));
+        this.battleRuleState = this.battleRuleService.applyRoundResult(result, this.battleRuleState);
+        const snapshot = this.store.snapshot.state;
+        const playerDead = snapshot.player.hp <= 0;
+        const enemyDead = (snapshot.enemy?.hp ?? 0) <= 0;
+        if (playerDead || enemyDead) {
+            const winner: TurnOwner | 'DRAW' =
+                playerDead && enemyDead ? 'DRAW' : enemyDead ? 'PLAYER' : 'ENEMY';
+            this.finishBattle(winner);
+        }
+    }
+
+    private finishBattle(winner: TurnOwner | 'DRAW') {
+        if (this.battleConcluded) return;
+        this.battleConcluded = true;
+        const snapshot = this.store.snapshot.state;
+        const startPlayer = this.battleStartSnapshot?.playerHp ?? snapshot.player.maxHp;
+        const startEnemy = this.battleStartSnapshot?.enemyHp ?? (snapshot.enemy?.maxHp ?? 0);
+        const playerHpDelta = snapshot.player.hp - startPlayer;
+        const enemyHpDelta = (snapshot.enemy?.hp ?? 0) - startEnemy;
+        const result = createDefaultBattleResult({
+            winner,
+            roundsPlayed: this.roundResults.length,
+            playerHpDelta,
+            enemyHpDelta,
+            suddenDeath:
+                this.battleRuleState.suddenDeathThreshold !== undefined &&
+                (snapshot.player.hp <= (this.battleRuleState.suddenDeathThreshold ?? 0) ||
+                    (snapshot.enemy?.hp ?? 0) <= (this.battleRuleState.suddenDeathThreshold ?? 0)),
+            roundResults: this.getRoundResults(),
+        });
+        this.battleResultHandler?.(result);
     }
 
     private createMeta(

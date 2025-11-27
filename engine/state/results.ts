@@ -38,7 +38,7 @@ const createAdjustmentSnapshot = (): RoundAdjustmentSnapshot => ({
 
 const cloneItem = (item: Item): Item => ({ ...item });
 
-const cloneRoundResult = (result: IRoundResult): IRoundResult => ({
+export const cloneRoundResult = (result: IRoundResult): IRoundResult => ({
     ...result,
     damageAdjustments: { ...result.damageAdjustments },
     damageImmunity: { ...result.damageImmunity },

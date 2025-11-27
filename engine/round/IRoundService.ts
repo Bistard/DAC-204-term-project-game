@@ -1,4 +1,4 @@
-import { HandAction, TurnOwner } from '../../common/types';
+import { GameState, HandAction, TurnOwner } from '../../common/types';
 
 export interface DrawCardOptions {
     faceDown?: boolean;
@@ -21,4 +21,17 @@ export interface IRoundService {
     resolveRoundDamage(target: TurnOwner, baseAmount: number): number;
     applyDamage(target: TurnOwner, amount: number): number;
     clearRoundModifiers(reason: string, resetTargetScore: boolean): void;
+    heal(actor: TurnOwner, amount: number): number;
+    addShield(targets: TurnOwner[], amount: number): void;
+    enableDamageImmunity(targets: TurnOwner[]): void;
+    drawOptimalCard(actor: TurnOwner): Promise<void>;
+    drawCardWithValue(actor: TurnOwner, value: number): Promise<void>;
+    swapLastCards(): void;
+    undoLastDraw(target: TurnOwner): void;
+    replaceLastCard(target: TurnOwner): void;
+    grantRandomItems(targets: TurnOwner[], amount: number): void;
+    setTemporaryTargetScore(value: number): void;
+    queueLoserDamageBonus(amount: number): void;
+    setRoundMessage(message: string, meta?: { tag?: string; description?: string; payload?: Record<string, unknown> }): void;
+    getState(): GameState;
 }

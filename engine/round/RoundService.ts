@@ -27,6 +27,7 @@ import {
 } from '../../common/types';
 import { calculateScore, createDeck, getRandomItems, sleep } from '../utils';
 import { IRewardService } from '../battle/rewards/IRewardService';
+import { IRoundResult, createDefaultRoundResult } from '../state/results';
 
 export type CreateMetaFn = (
     tag: string,
@@ -42,6 +43,7 @@ interface RoundServiceDeps {
     rewardService: IRewardService;
     createMeta: CreateMetaFn;
     onRoundReady: () => void | Promise<void>;
+    onRoundComplete?: (result: IRoundResult) => void | Promise<void>;
 }
 
 export class RoundService {
@@ -156,7 +158,17 @@ export class RoundService {
             payload: { ...clash, active: false },
         });
 
-        await this.resolveDamage(clash.result);
+        const outcome = this.determineRoundOutcome(clash.result, snapshot.state, playerScore, enemyScore);
+        await this.resolveDamage(clash.result, outcome);
+        const roundResult = this.createRoundResult({
+            roundNumber: snapshot.state.roundCount,
+            winner: outcome.winner,
+            playerScore,
+            enemyScore,
+            roundState: snapshot.state,
+            isPerfect: false,
+        });
+        await this.deps.onRoundComplete?.(roundResult);
         this.deps.store.updateFlags(
             flags => ({ ...flags, isResolvingRound: false }),
             this.deps.createMeta('flag.resolve', 'Finish round resolution', undefined, { suppressHistory: true })
@@ -368,28 +380,12 @@ export class RoundService {
         return 'draw';
     }
 
-    private async resolveDamage(result: ClashState['result']) {
+    private async resolveDamage(result: ClashState['result'], outcome?: RoundOutcome) {
         const snapshot = this.deps.store.snapshot;
         const playerScore = snapshot.state.player.score;
         const enemyScore = snapshot.state.enemy?.score ?? 0;
-        const playerBust = this.isBust(playerScore, snapshot.state);
-        const enemyBust = snapshot.state.enemy ? this.isBust(enemyScore, snapshot.state) : false;
-
-        const winner: TurnOwner | 'DRAW' =
-            playerBust && enemyBust
-                ? 'DRAW'
-                : playerBust
-                ? 'ENEMY'
-                : enemyBust
-                ? 'PLAYER'
-                : result === 'player_win'
-                ? 'PLAYER'
-                : result === 'enemy_win'
-                ? 'ENEMY'
-                : 'DRAW';
-
-        const loser: TurnOwner | null =
-            winner === 'PLAYER' ? 'ENEMY' : winner === 'ENEMY' ? 'PLAYER' : null;
+        const info = outcome ?? this.determineRoundOutcome(result, snapshot.state, playerScore, enemyScore);
+        const { winner, loser, playerBust, enemyBust } = info;
 
         let message = 'Draw.';
         if (playerBust && enemyBust) {
@@ -448,10 +444,10 @@ export class RoundService {
         }
 
         if (penaltyOutcome.playerHeal) {
-            this.applyHealing('PLAYER', penaltyOutcome.playerHeal);
+            this.heal('PLAYER', penaltyOutcome.playerHeal);
         }
         if (penaltyOutcome.enemyHeal) {
-            this.applyHealing('ENEMY', penaltyOutcome.enemyHeal);
+            this.heal('ENEMY', penaltyOutcome.enemyHeal);
         }
 
         this.enforceSuddenDeath();
@@ -592,15 +588,17 @@ export class RoundService {
         );
     }
 
-    private applyHealing(target: TurnOwner, amount: number) {
+    heal(target: TurnOwner, amount: number) {
         const healAmount = Math.floor(amount);
-        if (healAmount <= 0) return;
+        if (healAmount <= 0) return 0;
+        let applied = 0;
         this.deps.store.updateState(
             prev => {
                 if (target === 'PLAYER') {
                     const entity = prev.player;
                     const nextHp = Math.min(entity.maxHp, entity.hp + healAmount);
                     if (nextHp === entity.hp) return prev;
+                    applied = nextHp - entity.hp;
                     return {
                         ...prev,
                         player: { ...entity, hp: nextHp },
@@ -610,6 +608,7 @@ export class RoundService {
                 const enemy = prev.enemy;
                 const nextHp = Math.min(enemy.maxHp, enemy.hp + healAmount);
                 if (nextHp === enemy.hp) return prev;
+                applied = nextHp - enemy.hp;
                 return {
                     ...prev,
                     enemy: { ...enemy, hp: nextHp },
@@ -621,6 +620,290 @@ export class RoundService {
             type: 'damage.number',
             payload: { value: healAmount, target, variant: 'HEAL' },
         });
+        return applied;
+    }
+
+    addShield(targets: TurnOwner[], amount: number) {
+        if (amount === 0) return;
+        this.deps.store.updateState(
+            prev => {
+                let player = prev.player;
+                let enemy = prev.enemy;
+                let changed = false;
+                targets.forEach(target => {
+                    if (target === 'PLAYER') {
+                        player = { ...player, shield: player.shield + amount };
+                        changed = true;
+                    } else if (enemy) {
+                        enemy = { ...enemy, shield: enemy.shield + amount };
+                        changed = true;
+                    }
+                });
+                if (!changed) return prev;
+                return {
+                    ...prev,
+                    player,
+                    enemy,
+                };
+            },
+            this.deps.createMeta('effect.shield', 'Shield applied', { targets, amount })
+        );
+    }
+
+    enableDamageImmunity(targets: TurnOwner[]) {
+        if (!targets.length) return;
+        this.deps.store.updateState(
+            prev => {
+                const immunity = { ...prev.roundModifiers.damageImmunity };
+                let changed = false;
+                targets.forEach(target => {
+                    if (!immunity[target]) {
+                        immunity[target] = true;
+                        changed = true;
+                    }
+                });
+                if (!changed) return prev;
+                return {
+                    ...prev,
+                    roundModifiers: {
+                        ...prev.roundModifiers,
+                        damageImmunity: immunity,
+                    },
+                    message: 'Resolution damage immunity engaged.',
+                };
+            },
+            this.deps.createMeta('effect.damageImmunity', 'Applied round damage immunity', { targets })
+        );
+    }
+
+    async drawOptimalCard(actor: TurnOwner) {
+        const snapshot = this.deps.store.snapshot.state;
+        const entity = actor === 'PLAYER' ? snapshot.player : snapshot.enemy;
+        if (!entity || snapshot.deck.length === 0) return;
+        this.deps.store.updateState(
+            prev => {
+                const current = actor === 'PLAYER' ? prev.player : prev.enemy;
+                if (!current || prev.deck.length === 0) return prev;
+                const deck = [...prev.deck];
+                const scoreOptions = prev.environmentRuntime.scoreOptions;
+                let bestIndex = -1;
+                let bestDiff = Number.POSITIVE_INFINITY;
+                let bestScore = -Infinity;
+                deck.forEach((card, index) => {
+                    const simulatedHand = [...current.hand, card];
+                    const simulatedScore = calculateScore(simulatedHand, prev.targetScore, scoreOptions);
+                    const diff = Math.abs(prev.targetScore - simulatedScore);
+                    const candidateBust = simulatedScore > prev.targetScore;
+                    const bestBust = bestScore > prev.targetScore;
+                    const take =
+                        bestIndex === -1 ||
+                        (!candidateBust && bestBust) ||
+                        (candidateBust === bestBust &&
+                            (diff < bestDiff || (diff === bestDiff && simulatedScore > bestScore)));
+                    if (take) {
+                        bestIndex = index;
+                        bestDiff = diff;
+                        bestScore = simulatedScore;
+                    }
+                });
+                if (bestIndex === -1) return prev;
+                const [picked] = deck.splice(bestIndex, 1);
+                const nextCard: Card = { ...picked, isFaceUp: true };
+                const hand = [...current.hand, nextCard];
+                const score = calculateScore(hand, prev.targetScore, scoreOptions);
+                const entityKey = actor === 'PLAYER' ? 'player' : 'enemy';
+                const updated = { ...current, hand, score };
+                return {
+                    ...prev,
+                    deck,
+                    [entityKey]: updated,
+                    message: `${actor === 'PLAYER' ? 'Optimal' : 'Enemy optimal'} draw retrieved.`,
+                };
+            },
+            this.deps.createMeta('effect.drawOptimal', 'Drew optimal card', { actor })
+        );
+    }
+
+    async drawCardWithValue(actor: TurnOwner, desired: number) {
+        if (!desired || Number.isNaN(desired)) return;
+        this.deps.store.updateState(
+            prev => {
+                const entityKey = actor === 'PLAYER' ? 'player' : 'enemy';
+                const entity = prev[entityKey];
+                if (!entity || prev.deck.length === 0) return prev;
+                const deck = [...prev.deck];
+                const index = deck.findIndex(card => card.value === desired);
+                if (index === -1) return prev;
+                const [picked] = deck.splice(index, 1);
+                const nextCard: Card = { ...picked, isFaceUp: true };
+                const hand = [...entity.hand, nextCard];
+                const score = calculateScore(hand, prev.targetScore, prev.environmentRuntime.scoreOptions);
+                return {
+                    ...prev,
+                    deck,
+                    [entityKey]: { ...entity, hand, score },
+                    message: `${actor === 'PLAYER' ? 'You' : 'Enemy'} drew target value ${desired}.`,
+                };
+            },
+            this.deps.createMeta('effect.drawValue', 'Drew specific card value', { actor, desired })
+        );
+    }
+
+    swapLastCards() {
+        this.deps.store.updateState(
+            prev => {
+                if (!prev.enemy || prev.player.hand.length === 0 || prev.enemy.hand.length === 0) return prev;
+                const playerHand = [...prev.player.hand];
+                const enemyHand = [...prev.enemy.hand];
+                const playerCard = playerHand.pop();
+                const enemyCard = enemyHand.pop();
+                if (!playerCard || !enemyCard) return prev;
+                playerHand.push(enemyCard);
+                enemyHand.push(playerCard);
+                const scoreOptions = prev.environmentRuntime.scoreOptions;
+                const playerScore = calculateScore(playerHand, prev.targetScore, scoreOptions);
+                const enemyScore = calculateScore(enemyHand, prev.targetScore, scoreOptions);
+                return {
+                    ...prev,
+                    player: { ...prev.player, hand: playerHand, score: playerScore },
+                    enemy: { ...prev.enemy, hand: enemyHand, score: enemyScore },
+                    message: 'Swapped the last drawn cards.',
+                };
+            },
+            this.deps.createMeta('effect.swapLast', 'Swapped last drawn cards')
+        );
+    }
+
+    undoLastDraw(target: TurnOwner) {
+        this.deps.store.updateState(
+            prev => {
+                const entityKey = target === 'PLAYER' ? 'player' : 'enemy';
+                const entity = prev[entityKey];
+                if (!entity || entity.hand.length === 0) return prev;
+                const hand = [...entity.hand];
+                const removed = hand.pop()!;
+                const deck = this.insertCardRandomly(prev.deck, { ...removed, isFaceUp: false });
+                const score = calculateScore(hand, prev.targetScore, prev.environmentRuntime.scoreOptions);
+                return {
+                    ...prev,
+                    deck,
+                    [entityKey]: { ...entity, hand, score },
+                    message: `${target === 'PLAYER' ? 'Your' : 'Enemy'} last draw was undone.`,
+                };
+            },
+            this.deps.createMeta('effect.undoDraw', 'Removed last drawn card', { target })
+        );
+    }
+
+    replaceLastCard(target: TurnOwner) {
+        this.deps.store.updateState(
+            prev => {
+                if (prev.deck.length === 0) return prev;
+                const entityKey = target === 'PLAYER' ? 'player' : 'enemy';
+                const entity = prev[entityKey];
+                if (!entity || entity.hand.length === 0) return prev;
+                const hand = [...entity.hand];
+                const removed = hand.pop()!;
+                const discardPile = [...prev.discardPile, { ...removed, isFaceUp: true }];
+                const deck = [...prev.deck];
+                const newCard = deck.pop();
+                if (!newCard) return prev;
+                const nextCard: Card = { ...newCard, isFaceUp: true };
+                hand.push(nextCard);
+                const score = calculateScore(hand, prev.targetScore, prev.environmentRuntime.scoreOptions);
+                return {
+                    ...prev,
+                    deck,
+                    discardPile,
+                    [entityKey]: { ...entity, hand, score },
+                    message: `${target === 'PLAYER' ? 'Your' : 'Enemy'} last card was replaced.`,
+                };
+            },
+            this.deps.createMeta('effect.replaceLast', 'Replaced last card', { target })
+        );
+    }
+
+    grantRandomItems(targets: TurnOwner[], amount: number) {
+        if (amount <= 0) return;
+        this.deps.store.updateState(
+            prev => {
+                let player = prev.player;
+                let enemy = prev.enemy;
+                let changed = false;
+                targets.forEach(target => {
+                    const source = target === 'PLAYER' ? player : enemy;
+                    if (!source) return;
+                    const slots = source.maxInventory - source.inventory.length;
+                    if (slots <= 0) return;
+                    const grant = Math.min(amount, slots);
+                    if (grant <= 0) return;
+                    const newItems = getRandomItems(grant);
+                    if (target === 'PLAYER') {
+                        player = { ...player, inventory: [...player.inventory, ...newItems] };
+                    } else if (enemy) {
+                        enemy = { ...enemy, inventory: [...enemy.inventory, ...newItems] };
+                    }
+                    changed = true;
+                });
+                if (!changed) return prev;
+                return {
+                    ...prev,
+                    player,
+                    enemy,
+                    message: 'New item cards acquired.',
+                };
+            },
+            this.deps.createMeta('effect.gainItems', 'Granted random items', { amount, targets })
+        );
+    }
+
+    setTemporaryTargetScore(override: number) {
+        if (!override || Number.isNaN(override)) return;
+        this.deps.store.updateState(
+            prev => ({
+                ...prev,
+                targetScore: override,
+                roundModifiers: {
+                    ...prev.roundModifiers,
+                    targetScoreOverride: override,
+                },
+                message: `Target score recalibrated to ${override}.`,
+            }),
+            this.deps.createMeta('effect.tempTarget', 'Applied temporary target score', { override })
+        );
+    }
+
+    queueLoserDamageBonus(amount: number) {
+        if (amount === 0) return;
+        this.deps.store.updateState(
+            prev => ({
+                ...prev,
+                roundModifiers: {
+                    ...prev.roundModifiers,
+                    loserDamageBonus: prev.roundModifiers.loserDamageBonus + amount,
+                },
+                message: `Round loser suffers +${amount} damage.`,
+            }),
+            this.deps.createMeta('effect.pendingLoserDamage', 'Queued loser damage bonus', { amount })
+        );
+    }
+
+    setRoundMessage(
+        message: string,
+        meta?: { tag?: string; description?: string; payload?: Record<string, unknown> }
+    ) {
+        this.deps.store.updateState(
+            prev => ({ ...prev, message }),
+            this.deps.createMeta(
+                meta?.tag ?? 'round.message',
+                meta?.description ?? 'Update round message',
+                meta?.payload
+            )
+        );
+    }
+
+    getState(): GameState {
+        return this.deps.store.snapshot.state;
     }
 
     private emitPenaltyEvent(card: PenaltyCard, state: 'DRAWN' | 'APPLIED', detail?: string) {
@@ -628,6 +911,63 @@ export class RoundService {
             type: 'penalty.card',
             payload: { card, state, detail },
         });
+    }
+
+    private createRoundResult(params: {
+        roundNumber: number;
+        winner: TurnOwner | 'DRAW';
+        playerScore: number;
+        enemyScore: number;
+        roundState: GameState;
+        isPerfect: boolean;
+    }): IRoundResult {
+        const { roundNumber, winner, playerScore, enemyScore, roundState, isPerfect } = params;
+        const playerBust = this.isBust(playerScore, roundState);
+        const enemyBust = roundState.enemy ? this.isBust(enemyScore, roundState) : false;
+        return createDefaultRoundResult({
+            roundNumber,
+            winner,
+            playerScore,
+            enemyScore,
+            playerBust,
+            enemyBust,
+            isPerfect,
+            damageAdjustments: { ...roundState.roundModifiers.damageAdjustments },
+            damageImmunity: { ...roundState.roundModifiers.damageImmunity },
+            loserDamageBonus: roundState.roundModifiers.loserDamageBonus,
+        });
+    }
+
+    private determineRoundOutcome(
+        result: ClashState['result'],
+        state: GameState,
+        playerScore: number,
+        enemyScore: number
+    ): RoundOutcome {
+        const playerBust = this.isBust(playerScore, state);
+        const enemyBust = state.enemy ? this.isBust(enemyScore, state) : false;
+        const winner: TurnOwner | 'DRAW' =
+            playerBust && enemyBust
+                ? 'DRAW'
+                : playerBust
+                ? 'ENEMY'
+                : enemyBust
+                ? 'PLAYER'
+                : result === 'player_win'
+                ? 'PLAYER'
+                : result === 'enemy_win'
+                ? 'ENEMY'
+                : 'DRAW';
+        const loser: TurnOwner | null =
+            winner === 'PLAYER' ? 'ENEMY' : winner === 'ENEMY' ? 'PLAYER' : null;
+        return { winner, loser, playerBust, enemyBust };
+    }
+
+    private insertCardRandomly(deck: Card[], card: Card) {
+        const nextDeck = [...deck];
+        const index = Math.floor(Math.random() * (nextDeck.length + 1));
+        nextDeck.splice(index, 0, card);
+        return nextDeck;
     }
 
     applyDamage(target: TurnOwner, amount: number): number {
@@ -825,3 +1165,9 @@ export class RoundService {
         );
     }
 }
+type RoundOutcome = {
+    winner: TurnOwner | 'DRAW';
+    loser: TurnOwner | null;
+    playerBust: boolean;
+    enemyBust: boolean;
+};

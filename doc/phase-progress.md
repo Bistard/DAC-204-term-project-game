@@ -44,11 +44,14 @@ Running notes for the Run/Battle/Round refactor phases. Dates in ISO format.
 - Moved the full `RoundService` implementation into `engine/round/RoundService.ts`, updated all consumers (`CombatService`, `AiService`, test fixtures, etc.) to import from the new location, and ensured the dependency on `RewardService` resolves through `engine/battle/rewards/RewardService`.
 - Relocated `ItemEffectService` into `engine/round/items/ItemService.ts`, fixed import roots (`../../eventBus`, `../../../common/types`, etc.), and rewired `CombatService` plus the smoke tests to depend on the new module path.
 - Vacuumed up the old stub re-exports so `engine/services/` no longer shadows round/item logic; Vitest smoke suites (`engine/services/__tests__/roundService.smoke.test.ts`, `itemEffectService.smoke.test.ts`) were refreshed to cover the new import graph and continue locking current behavior.
+- RoundService now emits `IRoundResult` snapshots via an `onRoundComplete` callback, ItemService operates exclusively through RoundService’s round-context API (heal/shield/inventory/target-score adjustments) without mutating `GameState` directly, and BattleService records each `IRoundResult` (`getRoundResults()`) to feed later aggregation.
 
 ## Stage 4 Deliverables (Battle Service & Wiring) - 2025-11-26
 - Promoted the legacy `CombatService` into `engine/battle/BattleService.ts` and retyped it to implement `IBattleService`, with dependencies now referencing `engine/battle/ai/*` and `engine/battle/rewards/IRewardService` instead of the old services folder.
 - Updated all call sites/tests (`engine/run/RunService.ts` already targeted the battle module; smoke tests now instantiate `BattleService` directly) so `engine/services/combatService.ts` could be removed.
 - Ensured imports across `AiService`, round/item modules, and Vitest suites point at the new battle structure; reran `npm run test` to confirm the battle lifecycle still behaves identically after the move.
+- BattleService now records each `IRoundResult`, builds an `IBattleResult` when a battle concludes, and exposes a result handler (`setBattleResultHandler`) which RunService registers to keep RunState in sync.
+- `engine/battle/rules/BattleRuleService.ts` interprets environment rule metadata (damage modifiers, target overrides, item locks, auto-draw, sudden death), and `AiService` only receives a sanitized battle view plus flag callbacks rather than the entire `GameStore`.
 
 ## Stage 5 Deliverables (Run Layer Ownership) - 2025-11-26
 - `engine/run/RunService.ts` now performs full run bootstrap: it resets the store, builds a `BattleContext` (enemy, deck, environment, penalty, player HP), and calls `IBattleService.startBattle` instead of mutating round/battle state directly.

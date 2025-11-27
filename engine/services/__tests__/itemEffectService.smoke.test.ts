@@ -15,10 +15,7 @@ const createItemEffectService = () => {
         onRoundReady: () => {},
     });
     const service = new ItemEffectService({
-        store: bundle.store,
-        eventBus: bundle.eventBus,
         roundService,
-        createMeta: bundle.createMeta,
     });
     return { ...bundle, service };
 };

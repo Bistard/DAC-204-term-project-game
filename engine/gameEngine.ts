@@ -53,7 +53,6 @@ export class GameEngine {
             store: this.store,
             eventBus: deps.eventBus,
             battleService: this.battleService,
-            rewardService: this.rewardService,
             getMetaState: deps.getMetaState,
         });
     }
