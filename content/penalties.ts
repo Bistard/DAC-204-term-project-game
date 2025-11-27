@@ -14,7 +14,7 @@ export const PENALTY_CARDS: PenaltyCard[] = [
     {
         id: 'fixed_damage',
         name: 'Fixed Damage',
-        description: 'The loser always suffers 3 damage.',
+        description: 'The loser suffers 3 damage.',
         damageFunction: context => {
             if (context.winner === 'DRAW' || !context.loser) {
                 return noDamage();

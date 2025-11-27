@@ -614,7 +614,7 @@ export const MenuScreen: React.FC = () => {
 
                                 {/* Header Decoration */}
                                 <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-[#271c19] px-4 py-1 border-2 border-[#5d4037] shadow-md pixel-corners">
-                                    <span className="text-[#a1887f] text-xs font-bold tracking-[0.3em] uppercase western-font">Blackjack</span>
+                                    <span className="text-[#a1887f] text-xs font-bold tracking-[0.3em] uppercase western-font">Bet Your Life</span>
                                 </div>
 
                                 {/* --- BUTTONS --- */}
