@@ -1,3 +1,6 @@
+#### [2025-11-27]
+##### **Refactor**
+- 完成 Run / Battle / Round 分层重构：`engine/gameEngine.ts` 通过新的 `RunService` / `BattleService` / `RoundService` / `ItemService` / `AiService` 串联战斗流程，移除旧的 `combatService.ts` / `roundService.ts` / `itemEffectService.ts` 入口，并补齐对应的分层单元测试与 AI 决策测试。
 #### [2025-11-26]
 ##### **Feature**
 - 教程页面

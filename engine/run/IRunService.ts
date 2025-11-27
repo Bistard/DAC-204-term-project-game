@@ -3,8 +3,8 @@ import { IBattleResult } from '../state/results';
 
 /**
  * High-level entry points exposed to the UI or game engine for interacting
- * with the ongoing run. Battle-specific logic still lives in the legacy
- * CombatService and will migrate into the layered services in later stages.
+ * with the ongoing run. Orchestrates battles via IBattleService while keeping
+ * run-level concerns (progression, rewards) isolated from battle/round logic.
  */
 export interface IRunService {
     startRun(): void;
