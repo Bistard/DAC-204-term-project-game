@@ -44,3 +44,13 @@ Running notes for the Run/Battle/Round refactor phases. Dates in ISO format.
 - Moved the full `RoundService` implementation into `engine/round/RoundService.ts`, updated all consumers (`CombatService`, `AiService`, test fixtures, etc.) to import from the new location, and ensured the dependency on `RewardService` resolves through `engine/battle/rewards/RewardService`.
 - Relocated `ItemEffectService` into `engine/round/items/ItemService.ts`, fixed import roots (`../../eventBus`, `../../../common/types`, etc.), and rewired `CombatService` plus the smoke tests to depend on the new module path.
 - Vacuumed up the old stub re-exports so `engine/services/` no longer shadows round/item logic; Vitest smoke suites (`engine/services/__tests__/roundService.smoke.test.ts`, `itemEffectService.smoke.test.ts`) were refreshed to cover the new import graph and continue locking current behavior.
+
+## Stage 4 Deliverables (Battle Service & Wiring) - 2025-11-26
+- Promoted the legacy `CombatService` into `engine/battle/BattleService.ts` and retyped it to implement `IBattleService`, with dependencies now referencing `engine/battle/ai/*` and `engine/battle/rewards/IRewardService` instead of the old services folder.
+- Updated all call sites/tests (`engine/run/RunService.ts` already targeted the battle module; smoke tests now instantiate `BattleService` directly) so `engine/services/combatService.ts` could be removed.
+- Ensured imports across `AiService`, round/item modules, and Vitest suites point at the new battle structure; reran `npm run test` to confirm the battle lifecycle still behaves identically after the move.
+
+## Stage 5 Deliverables (Run Layer Ownership) - 2025-11-26
+- `engine/run/RunService.ts` now owns run bootstrap logic: it injects `GameStore`/`EventBus`, creates the initial `GameState` (mirroring the old RoundService.startRun flow), emits the penalty card event, and then hands control to `IBattleService.startRound()`.
+- `IBattleService`/`BattleService` no longer expose `startRun`, and `RoundService` was trimmed to Round-only concerns. GameEngine wires the new dependencies so RunService can manipulate state directly.
+- Added `handleBattleResult` on RunService, updating `RunState` via `store.updateRunState` when fed an `IBattleResult`; accompanying Vitest coverage (`engine/run/__tests__/runService.test.ts`) ensures run-level messaging/gold tracking respond to battle outcomes.

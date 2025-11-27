@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { GamePhase, GameEvent } from '../../../common/types';
 import { createStoreBundle } from './serviceTestUtils';
-import { CombatService } from '../combatService';
+import { BattleService } from '../../battle/BattleService';
 
-const createCombatService = () => {
+const createBattleService = () => {
     const bundle = createStoreBundle();
-    const combatService = new CombatService({
+    const battleService = new BattleService({
         store: bundle.store,
         eventBus: bundle.eventBus,
         getMetaState: bundle.getMetaState,
@@ -16,16 +16,16 @@ const createCombatService = () => {
         phase: GamePhase.BATTLE,
         turnOwner: 'PLAYER',
     }));
-    return { ...bundle, combatService };
+    return { ...bundle, battleService };
 };
 
-describe('CombatService smoke tests', () => {
+describe('BattleService smoke tests', () => {
     it('handles stand transitions and emits events', () => {
         const events: GameEvent[] = [];
-        const { combatService, eventBus, store } = createCombatService();
+        const { battleService, eventBus, store } = createBattleService();
         eventBus.subscribe(event => events.push(event));
 
-        combatService.stand('PLAYER');
+        battleService.stand('PLAYER');
 
         const snapshot = store.snapshot.state;
         expect(snapshot.playerStood).toBe(true);

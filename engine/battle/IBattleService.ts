@@ -5,7 +5,6 @@ import { TurnOwner } from '../../common/types';
  * implementations will arrive in later phases.
  */
 export interface IBattleService {
-    startRun(): void;
     startRound(): Promise<void> | void;
     hit(actor: TurnOwner): Promise<void> | void;
     stand(actor: TurnOwner): void;

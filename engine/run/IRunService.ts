@@ -1,4 +1,5 @@
 import { Item, TurnOwner } from '../../common/types';
+import { IBattleResult } from '../state/results';
 
 /**
  * High-level entry points exposed to the UI or game engine for interacting
@@ -16,4 +17,5 @@ export interface IRunService {
     startNextLevel(): Promise<void> | void;
     buyUpgrade(type: 'HP' | 'INVENTORY'): void;
     resumeBattleFlow(): void;
+    handleBattleResult(result: IBattleResult): void;
 }

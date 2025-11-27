@@ -6,6 +6,7 @@ export default defineConfig({
         include: ['engine/**/*.test.ts'],
         globals: false,
         coverage: {
+            provider: 'v8',
             enabled: false,
         },
     },

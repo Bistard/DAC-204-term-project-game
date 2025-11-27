@@ -11,7 +11,6 @@ export interface RevealCardOptions {
 }
 
 export interface IRoundService {
-    startRun(): void;
     startRound(): Promise<void>;
     resolveRound(): Promise<void> | void;
     emitHandAction(actor: TurnOwner, action: HandAction, duration: number): void;

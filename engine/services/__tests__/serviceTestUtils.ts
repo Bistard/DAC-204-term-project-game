@@ -2,8 +2,8 @@ import { MetaState, MetaUpdater, StoreUpdateMeta } from '../../../common/types';
 import { GameStore } from '../../state/gameStore';
 import { createInitialGameState } from '../../state/gameState';
 import { EventBus } from '../../eventBus';
-import { RewardService } from '../rewardService';
-import { CreateMetaFn } from '../roundService';
+import { RewardService } from '../../battle/rewards/RewardService';
+import { CreateMetaFn } from '../../round/RoundService';
 
 const baseMeta: MetaState = {
     gold: 0,

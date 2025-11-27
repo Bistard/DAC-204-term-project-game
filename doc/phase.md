@@ -71,7 +71,7 @@
   - 在 `engine/core/gameEngine.ts` 中，用新服务组合替换 `RoundService` / `CombatService` 入口，并确保对外 API 不变或提供兼容层。
   - 编写针对 Run/Battle/Round 的分层单元测试与集成冒烟测试，覆盖典型场景：环境/惩罚修改、Item 回合修正、AI 决策、奖励派发等。
   - 移除或封存旧文件（例如旧目录下的 `combatService.ts`、`roundService.ts`、`itemEffectService.ts`），确认所有引用均指向新结构。
-  - 更新文档（`refactor-plan.md`、`change-log.md`、`turn-by-turn-rule.md` 等）描述新的职责边界与目录结构。
+  - 更新文档（`change-log.md`）描述新的职责边界与目录结构。
 - **单元测试要求**
   - 组建 Run/Battle/Round 的端到端分层测试套件（如使用 Vitest/Jest），覆盖环境/惩罚修改、Item 回合修正、AI 决策、奖励派发等关键流程。
   - 为兼容层与对外 API 编写回归测试，在移除旧文件前验证新服务组合保持外部契约不变。
