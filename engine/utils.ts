@@ -16,7 +16,7 @@ import { ENEMY_TEMPLATES } from '../content/enemies';
 import { ENVIRONMENT_CARDS } from '../content/environments';
 import { PENALTY_CARDS } from '../content/penalties';
 import { ACE_VALUE, ACE_ADJUSTMENT, HP_SCALING_PER_LEVEL, MAX_INVENTORY_SLOTS, TARGET_SCORE } from '../common/constants';
-import { buildEnvironmentRuntime } from './rules/environmentRuleEngine';
+import { buildEnvironmentRuntime } from './battle/rules/environmentRuleEngine';
 
 export const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 

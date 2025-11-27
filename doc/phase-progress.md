@@ -32,3 +32,10 @@ Running notes for the Run/Battle/Round refactor phases. Dates in ISO format.
 - `engine/state/gameStore.ts` now exposes `updateRunState`, `updateBattleState`, and `updateRoundState`, delegating to the helpers so callers no longer mutate `GameState` directly.
 - `engine/state/results.ts` defines `IRoundResult` / `IBattleResult` DTOs and default factories (`createDefaultRoundResult`, `createDefaultBattleResult`) for serialization and later adapters.
 - Tooling: Vitest config (`package.json`, `tsconfig.json`, `vitest.config.ts`) plus unit suites under `engine/state/__tests__/` validate the helper contracts while the Stage 0 smoke tests freeze existing service behavior.
+
+## Stage 2 Deliverables (Directory & Interface Scaffolding) - 2025-11-26
+- Target tree established under `engine/run`, `engine/battle`, and `engine/round` (including `battle/ai`, `battle/rewards`, `battle/rules`, `round/items`), with interface stubs such as `engine/run/IRunService.ts`, `engine/battle/IBattleService.ts`, `engine/round/IRoundService.ts`, and DTO helpers (`BattleState`, `BattleRuleState`, etc.) that describe each layer’s responsibilities.
+- Legacy services are re-exported through their new homes (`engine/battle/BattleService.ts`, `engine/battle/rewards/RewardService.ts`, `engine/round/RoundService.ts`, `engine/round/items/ItemService.ts`) so current behavior remains untouched while callers can begin depending on the new paths.
+- Shared rule utilities have been relocated to `engine/battle/rules/environmentRuleEngine.ts`, with placeholder files for `IBattleRuleService`, `BattleRuleService`, and `penaltyRuleEngine.ts` to host future logic.
+- A thin adapter `engine/run/RunService.ts` now composes the legacy `CombatService` + `RewardService` through the `IRunService` facade; `engine/gameEngine.ts` depends on this interface instead of the raw services, preserving existing external APIs while isolating run-level commands.
+- Added `engine/run/__tests__/runService.test.ts` (Vitest) to prove the adapter delegates to the correct underlying services, keeping regression coverage in place as the wiring shifts.

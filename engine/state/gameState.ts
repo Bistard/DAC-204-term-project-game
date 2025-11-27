@@ -15,7 +15,7 @@ import {
     RuntimeFlags,
     TurnOwner,
 } from '../../common/types';
-import { cloneEnvironmentRuntime, createEmptyEnvironmentRuntime } from '../rules/environmentRuleEngine';
+import { cloneEnvironmentRuntime, createEmptyEnvironmentRuntime } from '../battle/rules/environmentRuleEngine';
 
 export const createDefaultRoundModifiers = (): RoundModifierState => ({
     damageAdjustments: { PLAYER: 0, ENEMY: 0 },

@@ -1,8 +1,10 @@
 import { EventBus } from './eventBus';
-import { CombatService } from './services/combatService';
-import { RewardService } from './services/rewardService';
 import { GameStore } from './state/gameStore';
 import { createInitialGameState } from './state/gameState';
+import { BattleService } from './battle/BattleService';
+import { RewardService } from './battle/rewards/RewardService';
+import { RunService } from './run/RunService';
+import { IRunService } from './run/IRunService';
 import {
     GameLogEntry,
     GameSnapshot,
@@ -26,8 +28,9 @@ interface GameEngineDeps {
 
 export class GameEngine {
     private store: GameStore;
-    private combatService: CombatService;
+    private battleService: BattleService;
     private rewardService: RewardService;
+    private runService: IRunService;
 
     constructor(private deps: GameEngineDeps) {
         this.store = new GameStore(createInitialGameState(deps.getMetaState()));
@@ -39,10 +42,15 @@ export class GameEngine {
             updateMetaState: deps.updateMetaState,
         });
 
-        this.combatService = new CombatService({
+        this.battleService = new BattleService({
             store: this.store,
             eventBus: deps.eventBus,
             getMetaState: deps.getMetaState,
+            rewardService: this.rewardService,
+        });
+
+        this.runService = new RunService({
+            battleService: this.battleService,
             rewardService: this.rewardService,
         });
     }
@@ -60,40 +68,39 @@ export class GameEngine {
     }
 
     startRun() {
-        this.combatService.startRun();
+        this.runService.startRun();
     }
 
     startRound() {
-        return this.combatService.startRound();
+        return this.runService.startRound();
     }
 
     hit(actor: TurnOwner) {
-        return this.combatService.hit(actor);
+        return this.runService.hit(actor);
     }
 
     stand(actor: TurnOwner) {
-        this.combatService.stand(actor);
+        this.runService.stand(actor);
     }
 
     useItem(index: number, actor: TurnOwner) {
-        return this.combatService.useItem(index, actor);
+        return this.runService.useItem(index, actor);
     }
 
     proceedToRewards() {
-        this.rewardService.proceedToRewards();
+        this.runService.proceedToRewards();
     }
 
     pickReward(item: Item, index: number) {
-        this.rewardService.pickReward(item, index);
+        this.runService.pickReward(item, index);
     }
 
     nextLevel() {
-        this.rewardService.prepareNextLevel();
-        this.combatService.startRound();
+        this.runService.startNextLevel();
     }
 
     buyUpgrade(type: 'HP' | 'INVENTORY') {
-        this.rewardService.buyUpgrade(type);
+        this.runService.buyUpgrade(type);
     }
 
     getActionLog(limit?: number): GameLogEntry[] {
@@ -153,6 +160,6 @@ export class GameEngine {
                 suppressLog: true,
             });
         }
-        this.combatService.evaluateFlow();
+        this.runService.resumeBattleFlow();
     }
 }

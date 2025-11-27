@@ -1,4 +1,4 @@
-import { EnvironmentCard, EnvironmentRule, EnvironmentRuntimeState } from '../../common/types';
+import { EnvironmentCard, EnvironmentRule, EnvironmentRuntimeState } from '../../../common/types';
 
 export const createEmptyEnvironmentRuntime = (): EnvironmentRuntimeState => ({
     appliedCardIds: [],
