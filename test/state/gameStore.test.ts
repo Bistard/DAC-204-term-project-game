@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { GamePhase, MetaState } from '../../../common/types';
-import { GameStore } from '../gameStore';
-import { createInitialGameState } from '../gameState';
+import { GamePhase, MetaState } from '@/common/types';
+import { GameStore } from '@/engine/state/gameStore';
+import { createInitialGameState } from '@/engine/state/gameState';
 
 const createMetaState = (): MetaState => ({
     gold: 0,

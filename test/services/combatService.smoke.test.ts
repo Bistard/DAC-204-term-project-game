@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { GamePhase, GameEvent } from '../../../common/types';
+import { GamePhase, GameEvent } from '@/common/types';
 import { createStoreBundle } from './serviceTestUtils';
-import { BattleService } from '../../battle/BattleService';
+import { BattleService } from '@/engine/battle/BattleService';
 
 const createBattleService = () => {
     const bundle = createStoreBundle();

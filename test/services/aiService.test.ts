@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
-import { Enemy, EnvironmentRuntimeState, EnemyAIProfile, StoreUpdateMeta } from '../../../common/types';
-import { AiService } from '../aiService';
-import { createEmptyEnvironmentRuntime } from '../../battle/rules/environmentRuleEngine';
+import { Enemy, EnvironmentRuntimeState, EnemyAIProfile, StoreUpdateMeta } from '@/common/types';
+import { AiService } from '@/engine/services/aiService';
+import { createEmptyEnvironmentRuntime } from '@/engine/battle/rules/environmentRuleEngine';
 
 const createEnemy = (aiType: EnemyAIProfile, score: number): Enemy =>
     ({

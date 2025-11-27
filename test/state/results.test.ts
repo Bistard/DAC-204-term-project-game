@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { ItemType } from '../../../common/types';
+import { ItemType } from '@/common/types';
 import {
     IBattleResult,
     IRoundResult,
     createDefaultBattleResult,
     createDefaultRoundResult,
-} from '../results';
+} from '@/engine/state/results';
 
 const createItem = () => ({
     id: 'test',

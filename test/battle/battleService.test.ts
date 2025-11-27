@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
-import { BattleService } from '../BattleService';
-import { BattleContext } from '../BattleContext';
-import { STARTING_HP } from '../../../common/constants';
-import { createStoreBundle } from '../../services/__tests__/serviceTestUtils';
-import { createDefaultRoundResult } from '../../state/results';
-import { getRandomEnemy, createDeck } from '../../utils';
+import { BattleService } from '@/engine/battle/BattleService';
+import { BattleContext } from '@/engine/battle/BattleContext';
+import { STARTING_HP } from '@/common/constants';
+import { createStoreBundle } from '@/test/services/serviceTestUtils';
+import { createDefaultRoundResult } from '@/engine/state/results';
+import { getRandomEnemy, createDeck } from '@/engine/utils';
 
 const createBattleService = () => {
     const bundle = createStoreBundle();

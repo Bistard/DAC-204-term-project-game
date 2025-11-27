@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { MetaState } from '../../../common/types';
+import { MetaState } from '@/common/types';
 import {
     createInitialGameState,
     extractBattleState,
     withBattleState,
     withRoundState,
     withRunState,
-} from '../gameState';
+} from '@/engine/state/gameState';
 
 const createMetaState = (overrides: Partial<MetaState> = {}): MetaState => ({
     gold: 0,

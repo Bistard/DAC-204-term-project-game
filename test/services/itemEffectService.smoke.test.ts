@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { Item, ItemType, TurnOwner } from '../../../common/types';
+import { Item, ItemType, TurnOwner } from '@/common/types';
 import { createStoreBundle } from './serviceTestUtils';
-import { RoundService } from '../../round/RoundService';
-import { ItemEffectService } from '../../round/items/ItemService';
+import { RoundService } from '@/engine/round/RoundService';
+import { ItemEffectService } from '@/engine/round/items/ItemService';
 
 const createItemEffectService = () => {
     const bundle = createStoreBundle();

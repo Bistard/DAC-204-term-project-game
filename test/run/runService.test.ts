@@ -1,11 +1,11 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { GamePhase, MetaState, TurnOwner } from '../../../common/types';
-import { GameStore } from '../../state/gameStore';
-import { createInitialGameState } from '../../state/gameState';
-import { EventBus } from '../../eventBus';
-import { IBattleService } from '../../battle/IBattleService';
-import { RunService } from '../RunService';
-import { IBattleResult } from '../../state/results';
+import { GamePhase, MetaState, TurnOwner } from '@/common/types';
+import { GameStore } from '@/engine/state/gameStore';
+import { createInitialGameState } from '@/engine/state/gameState';
+import { EventBus } from '@/engine/eventBus';
+import { IBattleService } from '@/engine/battle/IBattleService';
+import { RunService } from '@/engine/run/RunService';
+import { IBattleResult } from '@/engine/state/results';
 
 const baseMeta: MetaState = {
     gold: 0,
