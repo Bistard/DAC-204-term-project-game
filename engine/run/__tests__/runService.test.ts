@@ -13,8 +13,19 @@ const baseMeta: MetaState = {
     upgrades: { hpLevel: 0, inventoryLevel: 0 },
 };
 
-const createBattleService = () =>
+const createBattleService = (store: GameStore) =>
     ({
+        startBattle: vi.fn(context => {
+            store.setState(
+                {
+                    ...store.snapshot.state,
+                    phase: GamePhase.BATTLE,
+                    runLevel: context.runLevel,
+                    roundCount: 1,
+                },
+                { tag: 'test:battle.start' }
+            );
+        }),
         startRound: vi.fn(),
         hit: vi.fn(),
         stand: vi.fn(),
@@ -36,7 +47,7 @@ const createRewardService = () =>
 const createRunService = () => {
     const store = new GameStore(createInitialGameState(baseMeta));
     const eventBus = new EventBus();
-    const battleService = createBattleService();
+    const battleService = createBattleService(store);
     const rewardService = createRewardService();
     const service = new RunService({
         store,
@@ -53,22 +64,20 @@ describe('RunService', () => {
         vi.clearAllMocks();
     });
 
-    it('initializes a new run and triggers the first round', () => {
+    it('initializes a new run and triggers the first battle', () => {
         const { service, store, battleService } = createRunService();
         service.startRun();
+        expect(battleService.startBattle).toHaveBeenCalledTimes(1);
         expect(store.snapshot.state.phase).toBe(GamePhase.BATTLE);
-        expect(store.snapshot.state.roundCount).toBe(1);
-        expect(battleService.startRound).toHaveBeenCalledTimes(1);
     });
 
     it('delegates combat actions to the battle service', async () => {
         const { service, battleService } = createRunService();
-        await service.startRound();
+        service.startRun();
         await service.hit('PLAYER' as TurnOwner);
         service.stand('ENEMY');
         await service.useItem(0, 'PLAYER');
 
-        expect(battleService.startRound).toHaveBeenCalled();
         expect(battleService.hit).toHaveBeenCalledWith('PLAYER');
         expect(battleService.stand).toHaveBeenCalledWith('ENEMY');
         expect(battleService.useItem).toHaveBeenCalledWith(0, 'PLAYER');
@@ -88,11 +97,9 @@ describe('RunService', () => {
     });
 
     it('prepares the next level before starting a new battle', async () => {
-        const { service, rewardService, battleService } = createRunService();
-        await service.startNextLevel();
-
-        expect(rewardService.prepareNextLevel).toHaveBeenCalledTimes(1);
-        expect(battleService.startRound).toHaveBeenCalledTimes(1);
+        const { service, battleService } = createRunService();
+        service.startNextLevel();
+        expect(battleService.startBattle).toHaveBeenCalledTimes(1);
     });
 
     it('resumes battle flow through the battle service', () => {

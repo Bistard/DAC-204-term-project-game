@@ -1,21 +1,21 @@
 import { STARTING_HP } from '../../common/constants';
 import { EventBus } from '../eventBus';
 import { GameStore } from '../state/gameStore';
-import { createDefaultPenaltyRuntime, createInitialGameState } from '../state/gameState';
+import { createInitialGameState } from '../state/gameState';
 import {
     GamePhase,
-    GameState,
     Item,
     MetaState,
     PenaltyCard,
     StoreUpdateMeta,
     TurnOwner,
 } from '../../common/types';
-import { applyEnvironmentRules, createDeck, getRandomEnemy, getRandomEnvironment, getRandomPenaltyCard } from '../utils';
+import { createDeck, getRandomEnemy, getRandomEnvironment, getRandomPenaltyCard } from '../utils';
 import { IBattleService } from '../battle/IBattleService';
 import { IRewardService } from '../battle/rewards/IRewardService';
 import { IRunService } from './IRunService';
 import { IBattleResult } from '../state/results';
+import { BattleContext } from '../battle/BattleContext';
 
 interface RunServiceDeps {
     store: GameStore;
@@ -25,28 +25,18 @@ interface RunServiceDeps {
     getMetaState: () => MetaState;
 }
 
-interface BattleBootstrap {
-    state: GameState;
-    penaltyCard: PenaltyCard | null;
-}
-
 export class RunService implements IRunService {
     constructor(private deps: RunServiceDeps) {}
 
     startRun() {
-        const bootstrap = this.createInitialBattleState(this.deps.getMetaState());
+        const meta = this.deps.getMetaState();
+        const baseState = createInitialGameState(meta);
         this.deps.store.setState(
-            bootstrap.state,
-            this.createMeta('run.start', 'Initialize new run', { runLevel: bootstrap.state.runLevel })
+            baseState,
+            this.createMeta('run.start', 'Initialize new run', { runLevel: baseState.runLevel })
         );
-        if (bootstrap.penaltyCard) {
-            this.emitPenaltyEvent(bootstrap.penaltyCard, 'DRAWN', 'Battle penalty selected.');
-        }
-        this.deps.battleService.startRound();
-    }
-
-    startRound() {
-        return this.deps.battleService.startRound();
+        const context = this.createBattleContext(1, meta, 'Run started!');
+        this.deps.battleService.startBattle(context);
     }
 
     hit(actor: TurnOwner) {
@@ -70,8 +60,10 @@ export class RunService implements IRunService {
     }
 
     startNextLevel() {
-        this.deps.rewardService.prepareNextLevel();
-        return this.deps.battleService.startRound();
+        const level = this.deps.store.snapshot.state.runLevel + 1;
+        const meta = this.deps.getMetaState();
+        const context = this.createBattleContext(level, meta, `Level ${level} Started.`);
+        this.deps.battleService.startBattle(context);
     }
 
     buyUpgrade(type: 'HP' | 'INVENTORY') {
@@ -96,37 +88,23 @@ export class RunService implements IRunService {
         );
     }
 
-    private createInitialBattleState(meta: MetaState): BattleBootstrap {
+    private createBattleContext(level: number, meta: MetaState, message: string): BattleContext {
         const deck = createDeck();
-        const environment = getRandomEnvironment(3);
-        const penaltyCard = getRandomPenaltyCard();
-        const baseState = createInitialGameState(meta);
-        const state = applyEnvironmentRules({
-            ...baseState,
-            phase: GamePhase.BATTLE,
-            runLevel: 1,
-            roundCount: 1,
+        const envCount = level <= 1 ? 0 : Math.min(3, level - 1);
+        const environment = getRandomEnvironment(envCount);
+        const penalty = getRandomPenaltyCard();
+        const enemy = getRandomEnemy(level);
+        const playerHp = STARTING_HP + meta.upgrades.hpLevel;
+        return {
+            runLevel: level,
             deck,
-            discardPile: [],
-            player: {
-                ...baseState.player,
-                hp: STARTING_HP + meta.upgrades.hpLevel,
-                maxHp: STARTING_HP + meta.upgrades.hpLevel,
-            },
-            enemy: getRandomEnemy(1),
-            activeEnvironment: environment,
-            activePenalty: penaltyCard,
-            penaltyRuntime: createDefaultPenaltyRuntime(),
-            message: 'Run started!',
-        });
-        return { state, penaltyCard };
-    }
-
-    private emitPenaltyEvent(card: PenaltyCard, state: 'DRAWN' | 'APPLIED', detail?: string) {
-        this.deps.eventBus.emit({
-            type: 'penalty.card',
-            payload: { card, state, detail },
-        });
+            environment,
+            penalty,
+            enemy,
+            playerHp,
+            playerMaxHp: playerHp,
+            message,
+        };
     }
 
     private createMeta(

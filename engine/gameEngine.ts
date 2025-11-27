@@ -74,10 +74,6 @@ export class GameEngine {
         this.runService.startRun();
     }
 
-    startRound() {
-        return this.runService.startRound();
-    }
-
     hit(actor: TurnOwner) {
         return this.runService.hit(actor);
     }

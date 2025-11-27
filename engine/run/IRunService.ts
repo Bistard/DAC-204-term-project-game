@@ -8,7 +8,6 @@ import { IBattleResult } from '../state/results';
  */
 export interface IRunService {
     startRun(): void;
-    startRound(): Promise<void> | void;
     hit(actor: TurnOwner): Promise<void> | void;
     stand(actor: TurnOwner): void;
     useItem(index: number, actor: TurnOwner): Promise<void> | void;

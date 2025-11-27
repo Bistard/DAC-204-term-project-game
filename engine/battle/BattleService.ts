@@ -1,14 +1,23 @@
 import { DELAY_ITEM_USE } from '../../common/constants';
 import { EventBus } from '../eventBus';
 import { GameStore } from '../state/gameStore';
-import { GamePhase, Item, MetaState, StoreUpdateMeta, TurnOwner } from '../../common/types';
-import { sleep } from '../utils';
+import {
+    GamePhase,
+    Item,
+    MetaState,
+    PenaltyCard,
+    StoreUpdateMeta,
+    TurnOwner,
+} from '../../common/types';
+import { sleep, applyEnvironmentRules } from '../utils';
 import { RoundService, CreateMetaFn } from '../round/RoundService';
 import { ItemEffectService } from '../round/items/ItemService';
 import { IBattleService } from './IBattleService';
 import { IRewardService } from './rewards/IRewardService';
 import { IAiService } from './ai/IAiService';
 import { AiService } from './ai/AiService';
+import { BattleContext } from './BattleContext';
+import { createDefaultPenaltyRuntime, createDefaultRoundModifiers } from '../state/gameState';
 
 interface BattleServiceDeps {
     store: GameStore;
@@ -49,6 +58,51 @@ export class BattleService implements IBattleService {
             onHit: () => this.hit('ENEMY'),
             onStand: () => this.stand('ENEMY'),
         });
+    }
+
+    startBattle(context: BattleContext) {
+        const baseState = this.store.snapshot.state;
+        const applied = applyEnvironmentRules({
+            ...baseState,
+            phase: GamePhase.BATTLE,
+            runLevel: context.runLevel,
+            roundCount: 1,
+            deck: context.deck,
+            discardPile: [],
+            activeEnvironment: context.environment,
+            activePenalty: context.penalty,
+            penaltyRuntime: createDefaultPenaltyRuntime(),
+            player: {
+                ...baseState.player,
+                hp: context.playerHp,
+                maxHp: context.playerMaxHp,
+                hand: [],
+                score: 0,
+                shield: 0,
+            },
+            enemy: {
+                ...context.enemy,
+                hand: [],
+                score: 0,
+                shield: context.enemy.shield ?? 0,
+            },
+            playerStood: false,
+            enemyStood: false,
+            turnOwner: 'PLAYER',
+            message: context.message,
+            rewardOptions: [],
+            pickedRewardIndices: [],
+            roundModifiers: createDefaultRoundModifiers(),
+            goldEarnedThisLevel: 0,
+        });
+        this.store.setState(
+            applied,
+            this.createMeta('battle.start', 'Battle initialized', { runLevel: context.runLevel })
+        );
+        if (context.penalty) {
+            this.emitPenaltyEvent(context.penalty, 'DRAWN', 'Battle penalty selected.');
+        }
+        this.startRound();
     }
 
     startRound() {
@@ -163,6 +217,13 @@ export class BattleService implements IBattleService {
         ) {
             this.aiService.queueTurn();
         }
+    }
+
+    private emitPenaltyEvent(card: PenaltyCard, state: 'DRAWN' | 'APPLIED', detail?: string) {
+        this.eventBus.emit({
+            type: 'penalty.card',
+            payload: { card, state, detail },
+        });
     }
 
     private createMeta(

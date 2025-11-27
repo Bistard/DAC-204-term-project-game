@@ -51,6 +51,6 @@ Running notes for the Run/Battle/Round refactor phases. Dates in ISO format.
 - Ensured imports across `AiService`, round/item modules, and Vitest suites point at the new battle structure; reran `npm run test` to confirm the battle lifecycle still behaves identically after the move.
 
 ## Stage 5 Deliverables (Run Layer Ownership) - 2025-11-26
-- `engine/run/RunService.ts` now owns run bootstrap logic: it injects `GameStore`/`EventBus`, creates the initial `GameState` (mirroring the old RoundService.startRun flow), emits the penalty card event, and then hands control to `IBattleService.startRound()`.
-- `IBattleService`/`BattleService` no longer expose `startRun`, and `RoundService` was trimmed to Round-only concerns. GameEngine wires the new dependencies so RunService can manipulate state directly.
-- Added `handleBattleResult` on RunService, updating `RunState` via `store.updateRunState` when fed an `IBattleResult`; accompanying Vitest coverage (`engine/run/__tests__/runService.test.ts`) ensures run-level messaging/gold tracking respond to battle outcomes.
+- `engine/run/RunService.ts` now performs full run bootstrap: it resets the store, builds a `BattleContext` (enemy, deck, environment, penalty, player HP), and calls `IBattleService.startBattle` instead of mutating round/battle state directly.
+- `engine/battle/BattleService.ts` implements `startBattle(context)` by applying the context to `GameState`, emitting penalty events, and kicking off the first round; `IBattleService`/`IRoundService` interfaces were updated accordingly, and `BattleContext` lives under `engine/battle/BattleContext.ts`.
+- `RunService.handleBattleResult` persists `IBattleResult` data back into `RunState`, while its tests (`engine/run/__tests__/runService.test.ts`) now mock the battle interface to assert context hand-off and result handling.

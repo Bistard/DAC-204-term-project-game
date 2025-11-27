@@ -1,10 +1,12 @@
 import { TurnOwner } from '../../common/types';
+import { BattleContext } from './BattleContext';
 
 /**
  * Facade for a single Battle lifecycle. Stage 2 only defines the contract;
  * implementations will arrive in later phases.
  */
 export interface IBattleService {
+    startBattle(context: BattleContext): void;
     startRound(): Promise<void> | void;
     hit(actor: TurnOwner): Promise<void> | void;
     stand(actor: TurnOwner): void;
