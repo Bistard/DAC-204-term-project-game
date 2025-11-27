@@ -9,7 +9,17 @@ import {
     RuntimeFlags,
     StoreUpdateMeta,
 } from '../../common/types';
-import { cloneGameState, createSnapshot, defaultRuntimeFlags } from './gameState';
+import {
+    BattleState,
+    RoundState,
+    RunState,
+    cloneGameState,
+    createSnapshot,
+    defaultRuntimeFlags,
+    withBattleState,
+    withRoundState,
+    withRunState,
+} from './gameState';
 import { ActionLogger, RecordingBuffer, TimelineTracker, cloneSnapshot } from './storeEnhancers';
 import { sleep } from '../utils';
 
@@ -57,6 +67,18 @@ export class GameStore {
         const next = cloneSnapshot(this.snapshot);
         this.commitChange(prev, next, meta, 'STATE');
         this.publish();
+    }
+
+    updateRunState(mutator: (state: RunState) => RunState, meta?: StoreUpdateMeta) {
+        this.updateState(prev => withRunState(prev, mutator), meta);
+    }
+
+    updateBattleState(mutator: (state: BattleState) => BattleState, meta?: StoreUpdateMeta) {
+        this.updateState(prev => withBattleState(prev, mutator), meta);
+    }
+
+    updateRoundState(mutator: (state: RoundState) => RoundState, meta?: StoreUpdateMeta) {
+        this.updateState(prev => withRoundState(prev, mutator), meta);
     }
 
     updateFlags(mutator: (flags: RuntimeFlags) => RuntimeFlags, meta?: StoreUpdateMeta) {
