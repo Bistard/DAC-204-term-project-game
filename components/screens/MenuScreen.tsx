@@ -301,6 +301,42 @@ const PixelWalker: React.FC<{ id: number; direction: 'left' | 'right'; onComplet
     );
 };
 
+const MenuCard: React.FC<{
+    className?: string;
+    style?: React.CSSProperties;
+    type: 'ace' | 'king';
+    suit?: 'spades' | 'hearts';
+}> = ({ className = '', style, type, suit = 'spades' }) => {
+    const isRed = suit === 'hearts';
+    const textColor = isRed ? 'text-[#8b0000]' : 'text-[#1a110d]';
+    const suitChar = suit === 'hearts' ? '♥' : '♠';
+
+    return (
+        <div 
+            className={`absolute w-16 h-24 sm:w-20 sm:h-28 border-2 border-[#1a110d] rounded-sm pixel-corners shadow-xl z-0 ${className}`}
+            style={style}
+        >
+            <div className="w-full h-full bg-[#e3dac9] border-2 border-[#e3dac9] flex flex-col justify-between p-1.5 overflow-hidden relative">
+                <div className="absolute inset-0 opacity-10 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPgo8cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSI0IiBmaWxsPSIjZmZmIi8+CjxyZWN0IHdpZHRoPSIxIiBoZWlnaHQ9IjEiIGZpbGw9IiMwMDAiIG9wYWNpdHk9IjAuMSIvPgo8L3N2Zz4=')]"></div>
+                
+                <div className={`text-sm font-bold leading-none ${textColor} western-font relative z-10`}>
+                    {type === 'ace' ? 'A' : 'K'}
+                    <div className="text-xs">{suitChar}</div>
+                </div>
+                
+                <div className={`absolute inset-0 flex items-center justify-center text-4xl opacity-20 ${textColor} select-none`}>
+                    {suitChar}
+                </div>
+
+                <div className={`text-sm font-bold leading-none self-end rotate-180 ${textColor} western-font relative z-10`}>
+                    {type === 'ace' ? 'A' : 'K'}
+                        <div className="text-xs">{suitChar}</div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 /**
  * @description CSS-generated pixel-art desert scene with a day/night cycle.
  * Updated with low-frequency animated elements
@@ -325,12 +361,12 @@ export const MenuScreen: React.FC = () => {
     useEffect(() => {
         const interval = setInterval(() => {
             // Spawn with 50% chance every 0.5 seconds
-            if (Math.random() < 0.5) {
+            if (Math.random() < 0.4) {
                 const id = Date.now();
-                const direction: Walker['direction'] = Math.random() < (2 / 3) ? 'right' : 'left';
+                const direction: Walker['direction'] = Math.random() < (2 / 3) ? 'left' : 'right';
                 setWalkers(prev => [...prev, { id, direction }]);
             }
-        }, 500);
+        }, 100);
         return () => clearInterval(interval);
     }, []);
 
@@ -599,10 +635,27 @@ export const MenuScreen: React.FC = () => {
 
                     {/* The Sign Body */}
                     <div className="relative w-full px-4 sm:px-8">
+                        
+                        {/* --- DECORATIVE CARDS BEHIND SIGN --- */}
+                        
+                         {/* Card 1: Ace of Spades (Top Left) */}
+                        <MenuCard 
+                            type="ace" 
+                            suit="spades" 
+                            className="top-0 left-8 sm:left-14 -translate-y-12 translate-x-10 -rotate-12 origin-bottom-right"
+                        />
+                        
+                        {/* Card 2: Back (Top Right) */}
+                        <MenuCard 
+                            type="king" 
+                            suit="hearts"
+                            className="top-0 left-8 sm:left-14 -translate-y-10 translate-x-10 rotate-6 origin-bottom-left"
+                        />
+                        
                         {/* Shadow of the sign */}
                         <div className="absolute inset-0 bg-black/60 translate-y-8 blur-sm rounded-lg transform scale-[0.9]"></div>
 
-                        <div className="relative bg-[#271c19] border-[6px] border-[#3e2723] rounded-sm pixel-corners p-1 shadow-2xl">
+                        <div className="relative bg-[#271c19] border-[6px] border-[#3e2723] rounded-sm pixel-corners p-1 shadow-2xl z-10">
                             {/* Inner Wood Face */}
                             <div
                                 className="bg-[#3e2723] p-6 sm:p-8 flex flex-col gap-6 relative border-2 border-[#1a110d]"
