@@ -307,16 +307,28 @@ export class RoundService {
     }
 
     revealInitialHands() {
+        const revealedEvents: { actor: TurnOwner; cardId: string }[] = [];
         this.deps.store.updateState(
             prev => {
-                const playerHand = prev.player.hand.map(card => ({ ...card, isFaceUp: true }));
-                const enemyHand = prev.enemy
-                    ? prev.enemy.hand.map((card, idx) => {
-                          const shouldReveal = idx !== 0;
-                          return shouldReveal ? { ...card, isFaceUp: true } : card;
-                      })
-                    : [];
                 const scoreOptions = prev.environmentRuntime.scoreOptions;
+                const playerHand = prev.player.hand.map(card => {
+                    if (!card.isFaceUp) {
+                        revealedEvents.push({ actor: 'PLAYER', cardId: card.id });
+                        return { ...card, isFaceUp: true };
+                    }
+                    return card;
+                });
+                let enemyHand: Card[] = [];
+                if (prev.enemy) {
+                    enemyHand = prev.enemy.hand.map((card, idx) => {
+                        const shouldReveal = idx !== 0;
+                        if (shouldReveal && !card.isFaceUp) {
+                            revealedEvents.push({ actor: 'ENEMY', cardId: card.id });
+                            return { ...card, isFaceUp: true };
+                        }
+                        return card;
+                    });
+                }
                 const playerScore = calculateScore(playerHand, prev.targetScore, scoreOptions);
                 const enemyScore = prev.enemy
                     ? calculateScore(
@@ -333,6 +345,12 @@ export class RoundService {
                 };
             },
             this.deps.createMeta('round.reveal', 'Reveal opening hands')
+        );
+        revealedEvents.forEach(event =>
+            this.deps.eventBus.emit({
+                type: 'card.revealed',
+                payload: event,
+            })
         );
     }
 
