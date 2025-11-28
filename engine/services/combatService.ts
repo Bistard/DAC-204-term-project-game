@@ -72,6 +72,7 @@ export class CombatService {
             createMeta,
             onHit: () => this.hit('ENEMY'),
             onStand: () => this.stand('ENEMY'),
+            onUseItem: index => this.useItem(index, 'ENEMY'),
         });
     }
 
@@ -185,7 +186,6 @@ export class CombatService {
 
         if (
             snapshot.state.turnOwner === 'ENEMY' &&
-            !snapshot.flags.isProcessingAI &&
             !snapshot.flags.isDealing &&
             !snapshot.state.enemyStood
         ) {
