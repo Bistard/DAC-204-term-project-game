@@ -680,7 +680,7 @@ export const MenuScreen: React.FC = () => {
                                     <button
                                         onClick={() => handleStart('normal')}
                                         disabled={isEntering}
-                                        className="group relative w-full h-24 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
+                                        className="group relative w-full h-20 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
                                     >
                                         <div className="absolute inset-0 bg-[#7c2d12] border-b-[6px] border-r-[6px] border-[#451a03] pixel-corners shadow-xl group-active:border-none group-active:translate-y-[6px] group-active:translate-x-[6px] group-active:shadow-none transition-all">
                                             {/* Wood Texture */}
@@ -696,7 +696,6 @@ export const MenuScreen: React.FC = () => {
                                             {/* Content */}
                                             <div className="relative h-full flex items-center justify-between px-10">
                                                 <div className="flex flex-col items-start">
-                                                    <span className="text-[#fdba74] text-[14px] font-bold tracking-[0.3em] uppercase opacity-70 mb-1">Standard Run</span>
                                                     <span className="text-[#ffedd5] text-4xl sm:text-4xl font-black tracking-widest western-font drop-shadow-md group-hover:text-white transition-colors">PLAY</span>
                                                 </div>
                                                 <div className="w-12 h-12 bg-[#451a03] rounded-full border-2 border-[#7c2d12] flex items-center justify-center shadow-inner group-hover:scale-110 transition-transform">
@@ -710,7 +709,7 @@ export const MenuScreen: React.FC = () => {
                                     <button
                                         onClick={() => handleStart('endless')}
                                         disabled={isEntering}
-                                        className="group relative w-full h-24 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
+                                        className="group relative w-full h-20 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
                                     >
                                         <div className="absolute inset-0 bg-[#312e81] border-b-[6px] border-r-[6px] border-[#1e1b4b] pixel-corners shadow-xl group-active:border-none group-active:translate-y-[6px] group-active:translate-x-[6px] group-active:shadow-none transition-all">
                                             {/* Mystic Texture */}
@@ -722,7 +721,6 @@ export const MenuScreen: React.FC = () => {
                                             {/* Content */}
                                             <div className="relative h-full flex items-center justify-between px-10">
                                                 <div className="flex flex-col items-start">
-                                                    <span className="text-[#a5b4fc] text-xs font-bold tracking-[0.3em] uppercase opacity-70 mb-1">Survival Mode</span>
                                                     <span className="text-[#e0e7ff] text-4xl sm:text-4xl font-black tracking-widest western-font drop-shadow-md group-hover:text-white transition-colors">ENDLESS</span>
                                                 </div>
                                                 <div className="w-12 h-12 bg-[#1e1b4b] rounded-full border-2 border-[#4338ca] flex items-center justify-center shadow-inner group-hover:scale-110 transition-transform">
@@ -736,23 +734,26 @@ export const MenuScreen: React.FC = () => {
                                     <button
                                         onClick={() => setShowUpgrades(true)}
                                         disabled={isEntering}
-                                        className="group relative w-full h-24 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
+                                        className="group relative w-full h-20 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
                                     >
-                                        <div className="absolute inset-0 bg-[#451a03] border-b-[6px] border-r-[6px] border-[#271c19] pixel-corners shadow-xl group-active:border-none group-active:translate-y-[6px] group-active:translate-x-[6px] group-active:shadow-none transition-all">
-                                            {/* Leather Texture */}
-                                            <div className="absolute inset-2 border-2 border-[#78350f] bg-[#3e1c05] opacity-80" style={{ backgroundImage: "url('https://www.transparenttextures.com/patterns/leather.png')" }}></div>
+                                        <div className="absolute inset-0 bg-[#1c1917] border-b-[6px] border-r-[6px] border-[#0c0a09] pixel-corners shadow-xl group-active:border-none group-active:translate-y-[6px] group-active:translate-x-[6px] group-active:shadow-none transition-all">
+                                            {/* Metal/Dark Texture */}
+                                            <div className="absolute inset-0 opacity-20 bg-[repeating-linear-gradient(45deg,transparent,transparent_10px,#000_10px,#000_12px)]"></div>
                                             
-                                            {/* Gold Corners */}
-                                            <div className="absolute top-2 left-2 w-3 h-3 bg-[#f59e0b] border border-[#78350f]"></div>
-                                            <div className="absolute top-2 right-2 w-3 h-3 bg-[#f59e0b] border border-[#78350f]"></div>
-                                            <div className="absolute bottom-2 left-2 w-3 h-3 bg-[#f59e0b] border border-[#78350f]"></div>
-                                            <div className="absolute bottom-2 right-2 w-3 h-3 bg-[#f59e0b] border border-[#78350f]"></div>
+                                            {/* Gold Rivets */}
+                                            <div className="absolute top-2 left-2 w-2 h-2 bg-[#f59e0b] shadow-sm rounded-full"></div>
+                                            <div className="absolute top-2 right-2 w-2 h-2 bg-[#f59e0b] shadow-sm rounded-full"></div>
+                                            <div className="absolute bottom-2 left-2 w-2 h-2 bg-[#f59e0b] shadow-sm rounded-full"></div>
+                                            <div className="absolute bottom-2 right-2 w-2 h-2 bg-[#f59e0b] shadow-sm rounded-full"></div>
+
+                                            {/* Gold Border Insert */}
+                                            <div className="absolute inset-3 border border-[#78350f] opacity-50 pointer-events-none"></div>
 
                                             {/* Content */}
                                             <div className="relative h-full flex items-center justify-between px-10">
-                                                <span className="item-start text-[#d7ccc8] group-hover:text-white text-4xl sm:text-4xl font-black tracking-wide western-font transition-colors">STORE</span>
-                                                <div className="w-12 h-12 bg-[#3e1c05] rounded-full border-2 border-[#78350f] flex items-center justify-center shadow-inner group-hover:scale-110 transition-transform">
-                                                    <ShoppingBag className="text-[#d7ccc8] w-8 h-8 group-hover:text-white transition-colors group-hover:animate-pulse" />
+                                                <span className="text-[#fbbf24] group-hover:text-[#fcd34d] text-4xl sm:text-4xl font-black tracking-wide western-font transition-colors drop-shadow-sm">STORE</span>
+                                                <div className="w-12 h-12 bg-[#292524] rounded-full border-2 border-[#f59e0b] flex items-center justify-center shadow-inner group-hover:scale-110 transition-transform">
+                                                    <ShoppingBag className="text-[#fbbf24] w-7 h-7 group-hover:animate-bounce" />
                                                 </div>
                                             </div>
                                         </div>
@@ -762,23 +763,19 @@ export const MenuScreen: React.FC = () => {
                                     <button
                                         onClick={() => setShowTutorial(true)}
                                         disabled={isEntering}
-                                        className="group relative w-full h-24 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
+                                        className="group relative w-full h-20 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
                                     >
-                                        <div className="absolute inset-0 bg-[#3f6212] border-b-[6px] border-r-[6px] border-[#14532d] pixel-corners shadow-xl group-active:border-none group-active:translate-y-[6px] group-active:translate-x-[6px] group-active:shadow-none transition-all">
-                                            {/* Camo/Forest Texture */}
-                                            <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_center,transparent_0%,#000_100%)]"></div>
-                                            
+                                        <div className="absolute inset-0 bg-[#293e0a] border-b-[6px] border-r-[6px] border-[#101804] pixel-corners shadow-xl group-active:border-none group-active:translate-y-[6px] group-active:translate-x-[6px] group-active:shadow-none transition-all">
                                             {/* Borders */}
-                                            <div className="absolute inset-1 border border-[#84cc16] opacity-30 rounded-sm"></div>
+                                            <div className="absolute inset-1 border border-[#5b8a16] opacity-30 rounded-sm"></div>
                                             
                                             {/* Content */}
                                             <div className="relative h-full flex items-center justify-between px-10">
                                                 <div className="flex flex-col items-start">
-                                                    <span className="text-[#bef264] text-xs font-bold tracking-[0.3em] uppercase opacity-70 mb-1">How to Play</span>
                                                     <span className="text-[#ecfccb] text-4xl sm:text-4xl font-black tracking-widest western-font drop-shadow-md group-hover:text-white transition-colors">TUTORIAL</span>
                                                 </div>
                                                 <div className="w-12 h-12 bg-[#14532d] rounded-full border-2 border-[#365314] flex items-center justify-center shadow-inner group-hover:scale-110 transition-transform">
-                                                    <HelpCircle className="w-8 h-8 text-[#bef264] group-hover:text-white transition-colors group-hover:animate-bounce" />
+                                                    <HelpCircle className="w-8 h-8 text-[#bef264] group-hover:text-white transition-colors group-hover:animate-pulse" />
                                                 </div>
                                             </div>
                                         </div>
