@@ -315,6 +315,10 @@ export class SfxService {
     }
 
     private handleEvent = (event: GameEvent) => {
+        // hack: not elegant but solve the problem
+        if (event.type === 'round.end' || event.type === 'battle.victory') {
+            this.stopActionPlayback('round.start');
+        }
         const actions = this.mapEventToActions(event);
         actions.forEach(actionId => this.playAction(actionId, event));
     };
@@ -562,7 +566,6 @@ export const DEFAULT_SFX_PRESETS: readonly SfxPreset[] = [
         config: createAudioFileConfig(crowdedSaloonClip, {
             volume: 0.1,
             loop: true,
-            stopActions: ['battle.victory']
         }),
     },
     {

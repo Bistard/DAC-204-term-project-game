@@ -83,7 +83,7 @@ All built-in clips live under `assets/sfx/` and were generated specifically for 
 - round win/lose/draw share a melodic palette but different cadence
 - gold gain/spend, penalty, and environment events reuse a focused set of tonal clips
 - UI click/error samples are included for manual triggers (`service.play('ui.click')`)
-- `battle.victory` silences the looping saloon ambience (`round.start`) via `stopActions`, ensuring the win stinger plays over silence
+- `battle.victory` silences the looping saloon ambience (`round.start`) via `stopActions`, ensuring the win stinger plays over silence, and the service also force-stops that ambience on `round.end` so defeats don't leave it looping
 
 Adding or tweaking sounds requires only:
 
