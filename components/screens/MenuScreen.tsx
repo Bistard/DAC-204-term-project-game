@@ -1,6 +1,6 @@
 
 import React, { useMemo, useEffect, useState, useCallback } from 'react';
-import { Play, Briefcase, Coins, Heart, Layers, X, Infinity as InfinityIcon, Skull, ShoppingBag, Crosshair } from 'lucide-react';
+import { Play, Briefcase, Coins, Heart, Layers, X, Infinity as InfinityIcon, Skull, ShoppingBag, Crosshair, HelpCircle } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { useGame } from '../../context/GameContext';
 import { GameMode } from '../../common/types';
@@ -10,6 +10,7 @@ import {
     MAX_UPGRADE_HP,
     MAX_UPGRADE_INVENTORY,
 } from '../../common/constants';
+import { TutorialModal } from '@/components/ui/tutorialModal';
 
 // Helper for the jittery title text
 const JitterTitle: React.FC<{ text: string; className?: string; }> = ({ text, className = '' }) => {
@@ -345,6 +346,7 @@ const MenuCard: React.FC<{
 export const MenuScreen: React.FC = () => {
     const { startRun, buyUpgrade, metaState } = useGame();
     const [showUpgrades, setShowUpgrades] = useState(false);
+    const [showTutorial, setShowTutorial] = useState(false);
     const [isNight, setIsNight] = useState(false);
     const [walkers, setWalkers] = useState<Walker[]>([]);
     const [isEntering, setIsEntering] = useState(false);
@@ -360,8 +362,8 @@ export const MenuScreen: React.FC = () => {
     // Walker Spawner
     useEffect(() => {
         const interval = setInterval(() => {
-            // Spawn with 50% chance every 0.5 seconds
-            if (Math.random() < 0.4) {
+            // Spawn with 33% chance every 0.1 seconds
+            if (Math.random() < 0.33) {
                 const id = Date.now();
                 const direction: Walker['direction'] = Math.random() < (2 / 3) ? 'left' : 'right';
                 setWalkers(prev => [...prev, { id, direction }]);
@@ -755,6 +757,32 @@ export const MenuScreen: React.FC = () => {
                                             </div>
                                         </div>
                                     </button>
+
+                                    {/* Tutorial Button - "How to Play" */}
+                                    <button
+                                        onClick={() => setShowTutorial(true)}
+                                        disabled={isEntering}
+                                        className="group relative w-full h-24 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
+                                    >
+                                        <div className="absolute inset-0 bg-[#3f6212] border-b-[6px] border-r-[6px] border-[#14532d] pixel-corners shadow-xl group-active:border-none group-active:translate-y-[6px] group-active:translate-x-[6px] group-active:shadow-none transition-all">
+                                            {/* Camo/Forest Texture */}
+                                            <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_center,transparent_0%,#000_100%)]"></div>
+                                            
+                                            {/* Borders */}
+                                            <div className="absolute inset-1 border border-[#84cc16] opacity-30 rounded-sm"></div>
+                                            
+                                            {/* Content */}
+                                            <div className="relative h-full flex items-center justify-between px-10">
+                                                <div className="flex flex-col items-start">
+                                                    <span className="text-[#bef264] text-xs font-bold tracking-[0.3em] uppercase opacity-70 mb-1">How to Play</span>
+                                                    <span className="text-[#ecfccb] text-4xl sm:text-4xl font-black tracking-widest western-font drop-shadow-md group-hover:text-white transition-colors">TUTORIAL</span>
+                                                </div>
+                                                <div className="w-12 h-12 bg-[#14532d] rounded-full border-2 border-[#365314] flex items-center justify-center shadow-inner group-hover:scale-110 transition-transform">
+                                                    <HelpCircle className="w-8 h-8 text-[#bef264] group-hover:text-white transition-colors group-hover:animate-bounce" />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -867,6 +895,9 @@ export const MenuScreen: React.FC = () => {
                     </div>
                 </div>
             )}
+            
+            {/* Tutorial Modal */}
+            {showTutorial && <TutorialModal onClose={() => setShowTutorial(false)} />}
         </div>
     );
 };
