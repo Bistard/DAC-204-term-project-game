@@ -340,7 +340,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [animatingPenaltyCard, setAnimatingPenaltyCard] =
         useState<{ card: PenaltyCard; state: 'entering' | 'holding' | 'exiting' } | null>(null);
     const [visibleEnvCount, setVisibleEnvCount] = useState(0);
-    const [penaltyRevealed, setPenaltyRevealed] = useState(true);
+    const [visiblePenaltyId, setVisiblePenaltyId] = useState<string | null>(
+        () => snapshot.state.activePenalty?.id ?? null
+    );
     const [clashState, setClashState] = useState<ClashState>(defaultClashState);
     const [scoreAnimating, setScoreAnimating] = useState(false);
     const [lastPenaltyEvent, setLastPenaltyEvent] = useState<{ card: PenaltyCard; state: 'DRAWN' | 'APPLIED'; detail?: string } | null>(null);
@@ -421,11 +423,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 case 'penalty.animation': {
                     setAnimatingPenaltyCard(event.payload);
                     if (event.payload.state === 'entering') {
-                         setPenaltyRevealed(false);
+                        setVisiblePenaltyId(null);
                     }
                     if (event.payload.state === 'exiting') {
                         window.setTimeout(() => {
-                            setPenaltyRevealed(true);
+                            setVisiblePenaltyId(event.payload.card.id);
                             setAnimatingPenaltyCard(null);
                         }, 200);
                     }
@@ -437,6 +439,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 }
                 case 'penalty.card': {
                     setLastPenaltyEvent(event.payload);
+                    if (event.payload.state === 'DRAWN') {
+                        setVisiblePenaltyId(null);
+                    }
                     if (event.payload.state === 'APPLIED') {
                         setTimeout(() => setLastPenaltyEvent(null), 1500);
                     }
@@ -459,6 +464,12 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setVisibleEnvCount(0);
         }
     }, [snapshot.state.roundCount, snapshot.state.player.hand.length]);
+
+    useEffect(() => {
+        if (!snapshot.state.activePenalty) {
+            setVisiblePenaltyId(null);
+        }
+    }, [snapshot.state.activePenalty]);
 
     const setGameState = useCallback<React.Dispatch<React.SetStateAction<GameState>>>(
         updater => {
@@ -491,6 +502,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         [engine]
     );
     const resumeGame = useCallback(() => engine.resumeGame(), [engine]);
+
+    const currentPenaltyId = snapshot.state.activePenalty?.id ?? null;
+    const penaltyRevealed = Boolean(currentPenaltyId && visiblePenaltyId === currentPenaltyId);
 
     const value = useMemo<GameContextType>(() => {
         const gameState = snapshot.state;
