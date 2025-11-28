@@ -191,6 +191,14 @@ export class SfxService {
                 const owner = this.mapOwner(event.payload.actor);
                 return this.mapHandAction(event.payload.action, owner);
             }
+            case 'card.drawn': {
+                const owner = this.mapOwner(event.payload.actor);
+                return [`card.draw.${owner}`];
+            }
+            case 'card.revealed': {
+                const owner = this.mapOwner(event.payload.actor);
+                return [`card.reveal.${owner}`];
+            }
             case 'damage.number': {
                 if (event.payload.variant === 'GOLD') {
                     return [this.mapGoldAction(event.payload.value)];
@@ -242,7 +250,7 @@ export class SfxService {
     private mapHandAction(action: HandAction, owner: Owner): SfxActionId[] {
         switch (action) {
             case 'HIT':
-                return [`hand.hit.${owner}`, `card.draw.${owner}`];
+                return [`hand.hit.${owner}`];
             case 'STAND':
             case 'LEAVE':
                 return [`hand.stand.${owner}`];
@@ -457,19 +465,7 @@ export const DEFAULT_SFX_PRESETS: readonly SfxPreset[] = [
         config: createAudioFileConfig(dealCardClip, {
             volume: 0.78,
         }),
-    },
-    // {
-    //     actionId: 'ui.error',
-    //     config: createAudioFileConfig(uiErrorClip, {
-    //         volume: 0.8,
-    //     }),
-    // },
-    // {
-    //     actionId: 'ui.click',
-    //     config: createAudioFileConfig(uiClickClip, {
-    //         volume: 0.65,
-    //     }),
-    // },
+    }
 ];
 
 export const registerDefaultSfxPresets = (service: SfxService) => {

@@ -342,6 +342,8 @@ export type HandAction = 'IDLE' | 'HIT' | 'STAND' | 'USE' | 'HURT' | 'LEAVE';
 
 export type GameEvent =
     | { type: 'hand.action'; payload: { actor: TurnOwner; action: HandAction; duration?: number } }
+    | { type: 'card.drawn'; payload: { actor: TurnOwner; cardId: string; faceDown: boolean } }
+    | { type: 'card.revealed'; payload: { actor: TurnOwner; cardId: string } }
     | { type: 'visual.effect'; payload: { effect: string; duration?: number } }
     | { type: 'damage.number'; payload: { value: number | string; target: TurnOwner; variant: 'DAMAGE' | 'HEAL' | 'GOLD' } }
     | { type: 'item.animation'; payload: { actor: TurnOwner; item: Item; index?: number; phase: 'START' | 'END' } }

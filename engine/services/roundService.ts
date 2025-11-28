@@ -245,19 +245,36 @@ export class RoundService {
             },
             this.deps.createMeta('card.draw', `${actor} drew a card`, { actor })
         );
-        return drawnCardId ? { cardId: drawnCardId } : null;
+        if (drawnCardId) {
+            this.deps.eventBus.emit({
+                type: 'card.drawn',
+                payload: { actor, cardId: drawnCardId, faceDown: !!options.faceDown },
+            });
+            return { cardId: drawnCardId };
+        }
+        return null;
     }
 
     revealCard(actor: TurnOwner, cardId: string, options: { shiftTurn?: boolean } = {}) {
+        let revealed = false;
         this.deps.store.updateState(
             prev => {
                 const entityKey = actor === 'PLAYER' ? 'player' : 'enemy';
                 const entity = prev[entityKey]!;
-                const hand = entity.hand.map(card =>
-                    card.id === cardId ? { ...card, isFaceUp: true } : card
-                );
+                const hand = entity.hand.map(card => {
+                    if (card.id === cardId && !card.isFaceUp) {
+                        revealed = true;
+                        return { ...card, isFaceUp: true };
+                    }
+                    return card;
+                });
                 const score = calculateScore(hand, prev.targetScore, prev.environmentRuntime.scoreOptions);
                 const card = hand.find(c => c.id === cardId);
+                
+                if (!card) {
+                    return prev;
+                }
+
                 const message =
                     actor === 'PLAYER'
                         ? `You drew ${card?.rank ?? ''}${card?.suit ?? ''}`
@@ -281,6 +298,12 @@ export class RoundService {
             },
             this.deps.createMeta('card.reveal', `${actor} revealed a card`, { actor, cardId })
         );
+        if (revealed) {
+            this.deps.eventBus.emit({
+                type: 'card.revealed',
+                payload: { actor, cardId },
+            });
+        }
     }
 
     revealInitialHands() {
