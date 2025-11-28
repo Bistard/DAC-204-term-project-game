@@ -307,6 +307,21 @@ export interface MetaState {
     upgrades: MetaUpgrades;
 }
 
+export type SaveSlotId = 'slot-1' | 'slot-2' | 'slot-3';
+
+export interface SaveSlotState {
+    id: SaveSlotId;
+    label: string;
+    meta: MetaState;
+    createdAt: number;
+    lastUpdated: number | null;
+}
+
+export interface SaveSystemState {
+    activeSlotId: SaveSlotId;
+    slots: Record<SaveSlotId, SaveSlotState>;
+}
+
 export interface DamageNumber {
     id: string;
     value: string;

@@ -1,6 +1,6 @@
 
 import React, { useMemo, useEffect, useState, useCallback } from 'react';
-import { Play, Briefcase, Coins, Heart, Layers, X, Infinity as InfinityIcon, Skull, ShoppingBag, Crosshair, HelpCircle } from 'lucide-react';
+import { Play, Briefcase, Coins, Heart, Layers, X, Infinity as InfinityIcon, Skull, ShoppingBag, Crosshair, HelpCircle, Book, Scroll, User, Target } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { useGame } from '../../context/GameContext';
 import { GameMode } from '../../common/types';
@@ -344,12 +344,21 @@ const MenuCard: React.FC<{
  */
 
 export const MenuScreen: React.FC = () => {
-    const { startRun, buyUpgrade, metaState } = useGame();
+    const { startRun, buyUpgrade, metaState, saveSlots, activeSlotId, selectSaveSlot } = useGame();
     const [showUpgrades, setShowUpgrades] = useState(false);
     const [showTutorial, setShowTutorial] = useState(false);
+    const [showSaveSlots, setShowSaveSlots] = useState(false);
     const [isNight, setIsNight] = useState(false);
     const [walkers, setWalkers] = useState<Walker[]>([]);
     const [isEntering, setIsEntering] = useState(false);
+    const activeSlotLabel = useMemo(() => {
+        const slot = saveSlots.find(slot => slot.id === activeSlotId);
+        return slot?.label ?? 'Slot 1';
+    }, [saveSlots, activeSlotId]);
+    const formatLastPlayed = useCallback((timestamp: number | null) => {
+        if (!timestamp) return 'Never';
+        return new Date(timestamp).toLocaleDateString();
+    }, []);
 
     // Day/Night Cycle Timer (10 seconds per phase)
     useEffect(() => {
@@ -759,6 +768,38 @@ export const MenuScreen: React.FC = () => {
                                         </div>
                                     </button>
 
+                                    {/* Save Slots Button - BOUNTY BOARD Redesign */}
+                                    <button
+                                        onClick={() => setShowSaveSlots(true)}
+                                        disabled={isEntering}
+                                        className="group relative w-full h-20 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
+                                    >
+                                        <div className="absolute inset-0 bg-[#e3dac9] border-b-[6px] border-r-[6px] border-[#a1887f] pixel-corners shadow-xl group-active:border-none group-active:translate-y-[6px] group-active:translate-x-[6px] group-active:shadow-none transition-all">
+                                            {/* Paper Texture Effect */}
+                                            <div className="absolute inset-0 opacity-10 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPgo8cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSI0IiBmaWxsPSIjMDAwIiBvcGFjaXR5PSIwLjEiLz48L3N2Zz4=')]"></div>
+                                            
+                                            {/* Top Nail */}
+                                            <div className="absolute top-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-[#3e2723] rounded-full shadow-sm"></div>
+
+                                            <div className="relative h-full flex items-center justify-between px-10">
+                                                <div className="flex flex-row items-start">
+                                                    <span className="text-[#3e2723] text-4xl sm:text-4xl font-black tracking-widest western-font drop-shadow-sm group-hover:text-black transition-colors">
+                                                        RECORDS
+                                                    </span>
+                                                    <span className="text-[#5d4037] text-sm tracking-wide font-mono uppercase font-bold items-center ml-4 mt-3">
+                                                        {activeSlotLabel}
+                                                    </span>
+                                                </div>
+                                                <div className="w-12 h-12 bg-[#f3e5ab] rounded-full border-2 border-[#8d6e63] flex items-center justify-center shadow-inner group-hover:scale-110 transition-transform">
+                                                    <Scroll className="w-7 h-7 text-[#3e2723]" />
+                                                </div>
+                                            </div>
+                                            
+                                            {/* Ripped Edge Bottom Visual */}
+                                            <div className="absolute bottom-0 left-0 right-0 h-1 bg-[repeating-linear-gradient(45deg,transparent,transparent_5px,#e3dac9_5px,#e3dac9_10px)] opacity-50"></div>
+                                        </div>
+                                    </button>
+
                                     {/* Tutorial Button - "How to Play" */}
                                     <button
                                         onClick={() => setShowTutorial(true)}
@@ -786,6 +827,136 @@ export const MenuScreen: React.FC = () => {
                     </div>
                 </div>
             </div>
+
+            {/* Save Slot Modal - BOUNTY BOARD REDESIGN */}
+            {showSaveSlots && (
+                <div
+                    className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in"
+                    onClick={() => setShowSaveSlots(false)}
+                >
+                    <div
+                        className="bg-[#2d1b0e] border-[16px] border-[#5d4037] p-6 sm:p-10 max-w-6xl w-full pixel-corners shadow-[0_0_80px_rgba(0,0,0,1)] relative flex flex-col gap-8"
+                        onClick={e => e.stopPropagation()}
+                        style={{
+                             backgroundImage: `repeating-linear-gradient(90deg, #3e2723 0px, #3e2723 20px, #2d1b0e 20px, #2d1b0e 40px)`
+                        }}
+                    >
+                        {/* Modal Close Button */}
+                        <button
+                            onClick={() => setShowSaveSlots(false)}
+                            className="absolute top-4 right-4 text-[#e3dac9] hover:text-white transition-colors bg-[#3e2723] p-2 rounded border-2 border-[#5d4037] z-[100] shadow-lg"
+                        >
+                            <X size={32} />
+                        </button>
+
+                        {/* Header Section */}
+                        <div className="text-center relative py-6 mb-4">
+                             <div className="bg-[#e3dac9] border-4 border-[#2d1b0e] inline-block px-12 py-3 transform -rotate-1 shadow-xl relative">
+                                 {/* Nails */}
+                                 <div className="absolute top-2 left-2 w-3 h-3 bg-[#1a110d] rounded-full shadow-sm"></div>
+                                 <div className="absolute top-2 right-2 w-3 h-3 bg-[#1a110d] rounded-full shadow-sm"></div>
+                                 <div className="absolute bottom-2 left-2 w-3 h-3 bg-[#1a110d] rounded-full shadow-sm"></div>
+                                 <div className="absolute bottom-2 right-2 w-3 h-3 bg-[#1a110d] rounded-full shadow-sm"></div>
+                                 
+                                 <h2 className="text-6xl text-[#2d1b0e] font-black western-font tracking-widest uppercase mb-1">BOUNTY BOARD</h2>
+                                 <p className="text-[#5d4037] text-xl font-bold font-mono tracking-widest uppercase">Select Your Target</p>
+                             </div>
+                        </div>
+
+                        {/* Slots Grid */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 px-4 pb-8">
+                            {saveSlots.map(slot => {
+                                const isActive = slot.id === activeSlotId;
+                                const isEmpty = slot.lastUpdated === null;
+                                const lastPlayedDate = formatLastPlayed(slot.lastUpdated);
+
+                                return (
+                                    <div
+                                        key={slot.id}
+                                        onClick={() => {
+                                            selectSaveSlot(slot.id);
+                                            setShowSaveSlots(false);
+                                        }}
+                                        className="group relative cursor-pointer perspective-1000"
+                                    >
+                                        {/* POSTER Container */}
+                                        <div className={`
+                                            relative w-full h-[420px] bg-[#e3dac9] p-4 flex flex-col items-center shadow-2xl transition-all duration-300 transform origin-top
+                                            group-hover:scale-105 group-hover:rotate-1 group-hover:shadow-[0_20px_40px_rgba(0,0,0,0.5)]
+                                            ${isActive ? 'rotate-1 scale-105 z-10' : 'rotate-0 z-0'}
+                                        `}>
+                                            {/* Paper Texture Overlay */}
+                                            <div className="absolute inset-0 opacity-10 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPgo8cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSI0IiBmaWxsPSIjMDAwIiBvcGFjaXR5PSIwLjEiLz48L3N2Zz4=')] pointer-events-none"></div>
+                                            
+                                            {/* Top Nail */}
+                                            <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-4 h-4 bg-[#1a110d] rounded-full shadow-md z-20"></div>
+
+                                            {/* Poster Header */}
+                                            <div className="w-full border-b-4 border-[#2d1b0e] pb-2 mb-4 text-center">
+                                                <h3 className="text-5xl font-black western-font text-[#2d1b0e] tracking-[0.2em]">WANTED</h3>
+                                                <p className="text-sm font-bold text-[#5d4037] uppercase tracking-widest">{isEmpty ? 'Dead or Alive' : 'For Crimes Against The House'}</p>
+                                            </div>
+
+                                            {/* Poster Image / Center */}
+                                            <div className="w-full flex-1 border-4 border-[#2d1b0e] bg-[#d7ccc8] mb-4 relative overflow-hidden flex flex-col items-center justify-center grayscale contrast-125">
+                                                 {isEmpty ? (
+                                                     <div className="flex flex-col items-center opacity-40">
+                                                         <HelpCircle size={64} className="text-[#3e2723] mb-2"/>
+                                                         <span className="text-[#3e2723] font-bold text-2xl western-font">UNKNOWN</span>
+                                                     </div>
+                                                 ) : (
+                                                     <div className="flex flex-col items-center">
+                                                         <User size={64} className="text-[#2d1b0e] mb-2"/>
+                                                         <span className="text-[#2d1b0e] font-bold text-3xl western-font uppercase tracking-widest">{slot.label}</span>
+                                                     </div>
+                                                 )}
+                                            </div>
+
+                                            {/* Stats Section */}
+                                            <div className="w-full space-y-2 mb-4">
+                                                <div className="flex justify-between items-end border-b border-[#a1887f] pb-1">
+                                                    <span className="text-[#5d4037] font-bold uppercase text-sm">Reward</span>
+                                                    <span className="text-[#2d1b0e] font-black text-xl font-mono">{slot.meta.gold} <span className="text-xs">GOLD</span></span>
+                                                </div>
+                                                <div className="flex justify-between items-end border-b border-[#a1887f] pb-1">
+                                                    <span className="text-[#5d4037] font-bold uppercase text-sm">Last Seen</span>
+                                                    <span className="text-[#2d1b0e] font-bold text-sm font-mono">{isEmpty ? '---' : lastPlayedDate}</span>
+                                                </div>
+                                                <div className="flex justify-between items-end">
+                                                    <span className="text-[#5d4037] font-bold uppercase text-sm">Status</span>
+                                                    <span className="text-[#2d1b0e] font-bold text-sm uppercase">{isEmpty ? 'New Contract' : 'At Large'}</span>
+                                                </div>
+                                            </div>
+
+                                            {/* Footer */}
+                                            <div className="text-center">
+                                                <span className="text-[10px] text-[#8d6e63] font-mono uppercase">Issued by Sheriff of Last Hand</span>
+                                            </div>
+
+                                            {/* Stamps */}
+                                            {isActive && (
+                                                <div className="absolute top-[40%] left-1/2 -translate-x-1/2 -translate-y-1/2 border-4 border-[#b91c1c] text-[#b91c1c] p-2 transform -rotate-12 opacity-90 mix-blend-multiply bg-transparent z-30 pointer-events-none">
+                                                    <span className="text-4xl font-black uppercase tracking-widest whitespace-nowrap block border-2 border-[#b91c1c] px-4 py-1">
+                                                        ON THE HUNT
+                                                    </span>
+                                                </div>
+                                            )}
+
+                                            {!isActive && (
+                                                <div className="absolute inset-0 bg-[#3e2723]/80 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center z-40 backdrop-blur-[1px]">
+                                                    <div className="bg-[#f3e5ab] text-[#3e2723] px-6 py-3 border-4 border-[#2d1b0e] font-bold text-xl uppercase tracking-widest shadow-xl transform scale-90 group-hover:scale-100 transition-transform">
+                                                        {isEmpty ? 'Take Contract' : 'Resume Hunt'}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Store Modal */}
             {showUpgrades && (

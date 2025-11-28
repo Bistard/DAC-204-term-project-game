@@ -21,6 +21,9 @@ import {
     HandAction,
     Item,
     MetaState,
+    SaveSlotId,
+    SaveSlotState,
+    SaveSystemState,
     LoadHistoryOptions,
     RecordingOptions,
     ReplayFrame,
@@ -50,6 +53,8 @@ interface GameContextType {
     goldEarnedThisLevel: number;
     lastPenaltyEvent: { card: PenaltyCard; state: 'DRAWN' | 'APPLIED'; detail?: string } | null;
     isBattleExiting: boolean;
+    saveSlots: SaveSlotState[];
+    activeSlotId: SaveSlotId;
     startRun: (mode: GameMode) => void;
     hit: (actor: TurnOwner) => Promise<void> | void;
     stand: (actor: TurnOwner) => void;
@@ -72,6 +77,7 @@ interface GameContextType {
     getHistory: () => ReplayFrame[];
     loadHistory: (frames: ReplayFrame[], options?: LoadHistoryOptions) => void;
     resumeGame: () => void;
+    selectSaveSlot: (slotId: SaveSlotId) => void;
 }
 
 const defaultClashState: ClashState = {
@@ -82,18 +88,108 @@ const defaultClashState: ClashState = {
 };
 
 const META_STORAGE_KEY = 'last_hand_meta';
+const PRIMARY_SLOT_ID: SaveSlotId = 'slot-1';
+const SAVE_SLOT_IDS: SaveSlotId[] = ['slot-1', 'slot-2', 'slot-3'];
+const SAVE_SLOT_LABELS: Record<SaveSlotId, string> = {
+    'slot-1': 'Slot 1',
+    'slot-2': 'Slot 2',
+    'slot-3': 'Slot 3',
+};
 
-const loadMetaState = (): MetaState => {
+const createEmptyMetaState = (): MetaState => ({
+    gold: 0,
+    upgrades: { hpLevel: 0, inventoryLevel: 0 },
+});
+
+const cloneMetaState = (meta: MetaState): MetaState => ({
+    gold: typeof meta.gold === 'number' ? meta.gold : 0,
+    upgrades: {
+        hpLevel: meta.upgrades?.hpLevel ?? 0,
+        inventoryLevel: meta.upgrades?.inventoryLevel ?? 0,
+    },
+});
+
+const createSlotState = (id: SaveSlotId, meta?: MetaState): SaveSlotState => {
+    const now = Date.now();
+    return {
+        id,
+        label: SAVE_SLOT_LABELS[id],
+        meta: cloneMetaState(meta ?? createEmptyMetaState()),
+        createdAt: now,
+        lastUpdated: meta ? now : null,
+    };
+};
+
+const createDefaultSaveData = (): SaveSystemState => {
+    const slots = SAVE_SLOT_IDS.reduce((acc, id) => {
+        acc[id] = createSlotState(id);
+        return acc;
+    }, {} as Record<SaveSlotId, SaveSlotState>);
+    return { activeSlotId: PRIMARY_SLOT_ID, slots };
+};
+
+const isMetaStatePayload = (value: unknown): value is MetaState => {
+    if (!value || typeof value !== 'object') return false;
+    const candidate = value as MetaState;
+    const upgrades = candidate.upgrades;
+    return (
+        typeof candidate.gold === 'number' &&
+        !!upgrades &&
+        typeof upgrades === 'object' &&
+        typeof upgrades.hpLevel === 'number' &&
+        typeof upgrades.inventoryLevel === 'number'
+    );
+};
+
+const isSaveSystemStatePayload = (value: unknown): value is SaveSystemState => {
+    if (!value || typeof value !== 'object') return false;
+    const candidate = value as SaveSystemState;
+    if (!candidate.slots || typeof candidate.slots !== 'object') return false;
+    return typeof candidate.activeSlotId === 'string';
+};
+
+const normalizeSaveData = (raw: SaveSystemState): SaveSystemState => {
+    const now = Date.now();
+    const slots = SAVE_SLOT_IDS.reduce((acc, id) => {
+        const slot = raw.slots?.[id];
+        acc[id] = {
+            id,
+            label: SAVE_SLOT_LABELS[id],
+            meta: cloneMetaState(slot?.meta ?? createEmptyMetaState()),
+            createdAt: typeof slot?.createdAt === 'number' ? slot.createdAt : now,
+            lastUpdated: typeof slot?.lastUpdated === 'number' ? slot.lastUpdated : null,
+        };
+        return acc;
+    }, {} as Record<SaveSlotId, SaveSlotState>);
+    const activeSlotId = SAVE_SLOT_IDS.includes(raw.activeSlotId) ? raw.activeSlotId : PRIMARY_SLOT_ID;
+    return { activeSlotId, slots };
+};
+
+const loadSaveData = (): SaveSystemState => {
     if (typeof window === 'undefined') {
-        return { gold: 0, upgrades: { hpLevel: 0, inventoryLevel: 0 } };
+        return createDefaultSaveData();
     }
     const stored = localStorage.getItem(META_STORAGE_KEY);
-    if (!stored) return { gold: 0, upgrades: { hpLevel: 0, inventoryLevel: 0 } };
+    if (!stored) return createDefaultSaveData();
     try {
-        return JSON.parse(stored) as MetaState;
-    } catch {
-        return { gold: 0, upgrades: { hpLevel: 0, inventoryLevel: 0 } };
+        const parsed = JSON.parse(stored);
+        if (isSaveSystemStatePayload(parsed)) {
+            return normalizeSaveData(parsed);
+        }
+        if (isMetaStatePayload(parsed)) {
+            const defaults = createDefaultSaveData();
+            defaults.slots[PRIMARY_SLOT_ID] = {
+                ...defaults.slots[PRIMARY_SLOT_ID],
+                meta: cloneMetaState(parsed),
+                lastUpdated: Date.now(),
+            };
+            defaults.activeSlotId = PRIMARY_SLOT_ID;
+            return defaults;
+        }
+    } catch (error) {
+        console.warn('[GameContext] Failed to parse save data', error);
     }
+    return createDefaultSaveData();
 };
 
 const GameContext = createContext<GameContextType | undefined>(undefined);
@@ -105,33 +201,82 @@ export const useGame = () => {
 };
 
 export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const [metaState, setMetaState] = useState<MetaState>(() => loadMetaState());
+    const [saveData, setSaveData] = useState<SaveSystemState>(() => loadSaveData());
+    const activeSlotId = saveData.activeSlotId;
+    const activeSlot = saveData.slots[activeSlotId] ?? createSlotState(activeSlotId);
+    const metaState = activeSlot.meta;
     const metaStateRef = useRef(metaState);
+
     useEffect(() => {
         metaStateRef.current = metaState;
-        localStorage.setItem(META_STORAGE_KEY, JSON.stringify(metaState));
     }, [metaState]);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        localStorage.setItem(META_STORAGE_KEY, JSON.stringify(saveData));
+    }, [saveData]);
+
+    const updateActiveSlotMeta = useCallback((updater: (prev: MetaState) => MetaState) => {
+        setSaveData(prev => {
+            const slot = prev.slots[prev.activeSlotId];
+            if (!slot) return prev;
+            const updatedMeta = cloneMetaState(updater(slot.meta));
+            const hasChanged =
+                updatedMeta.gold !== slot.meta.gold ||
+                updatedMeta.upgrades.hpLevel !== slot.meta.upgrades.hpLevel ||
+                updatedMeta.upgrades.inventoryLevel !== slot.meta.upgrades.inventoryLevel;
+            if (!hasChanged) return prev;
+            return {
+                ...prev,
+                slots: {
+                    ...prev.slots,
+                    [slot.id]: {
+                        ...slot,
+                        meta: updatedMeta,
+                        lastUpdated: Date.now(),
+                    },
+                },
+            };
+        });
+    }, []);
+
+    const selectSaveSlot = useCallback((slotId: SaveSlotId) => {
+        if (!SAVE_SLOT_IDS.includes(slotId)) return;
+        setSaveData(prev => {
+            if (prev.activeSlotId === slotId) return prev;
+            return { ...prev, activeSlotId: slotId };
+        });
+    }, []);
+
+    const saveSlots = useMemo(
+        () => SAVE_SLOT_IDS.map(id => saveData.slots[id] ?? createSlotState(id)),
+        [saveData]
+    );
 
     const busRef = useRef<EventBus | null>(null);
     if (!busRef.current) {
         busRef.current = new EventBus();
     }
 
-    const engineRef = useRef<GameEngine | null>(null);
-    if (!engineRef.current) {
-        engineRef.current = new GameEngine({
-            eventBus: busRef.current!,
-            getMetaState: () => metaStateRef.current,
-            updateMetaState: updater => {
-                setMetaState(prev => {
-                    const next = updater(prev);
-                    metaStateRef.current = next;
-                    return next;
-                });
-            },
-        });
-    }
-    const engine = engineRef.current!;
+    const instantiateEngine = useCallback(
+        () =>
+            new GameEngine({
+                eventBus: busRef.current!,
+                getMetaState: () => metaStateRef.current,
+                updateMetaState: updateActiveSlotMeta,
+            }),
+        [updateActiveSlotMeta]
+    );
+
+    const [engine, setEngine] = useState<GameEngine>(() => instantiateEngine());
+    const engineBootstrappedRef = useRef(false);
+    useEffect(() => {
+        if (!engineBootstrappedRef.current) {
+            engineBootstrappedRef.current = true;
+            return;
+        }
+        setEngine(instantiateEngine());
+    }, [instantiateEngine, activeSlotId]);
 
     const [snapshot, setSnapshot] = useState(engine.snapshot);
     const [storeDiagnostics, setStoreDiagnostics] = useState(() => ({
@@ -141,6 +286,13 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isRecording: engine.isRecording(),
     }));
     useEffect(() => {
+        setSnapshot(engine.snapshot);
+        setStoreDiagnostics({
+            actionLog: engine.getActionLog(50),
+            canUndo: engine.canUndo(),
+            canRedo: engine.canRedo(),
+            isRecording: engine.isRecording(),
+        });
         const unsubscribe = engine.subscribe(nextSnapshot => {
             setSnapshot(nextSnapshot);
             setStoreDiagnostics({
@@ -336,6 +488,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             visibleEnvCount,
             penaltyRevealed,
             metaState,
+            saveSlots,
+            activeSlotId,
             goldEarnedThisLevel: gameState.goldEarnedThisLevel,
             lastPenaltyEvent,
             isBattleExiting: snapshot.flags.isBattleExiting,
@@ -361,6 +515,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             getHistory,
             loadHistory,
             resumeGame,
+            selectSaveSlot,
         };
     }, [
         snapshot,
@@ -377,6 +532,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         visibleEnvCount,
         penaltyRevealed,
         metaState,
+        saveSlots,
+        activeSlotId,
         lastPenaltyEvent,
         startRun,
         hit,
@@ -397,6 +554,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         getHistory,
         loadHistory,
         resumeGame,
+        selectSaveSlot,
     ]);
 
     return <GameContext.Provider value={value}>{children}</GameContext.Provider>;
