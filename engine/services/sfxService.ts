@@ -2,6 +2,7 @@ import { AudioPlaybackOptions } from '../../common/audio/audioClipPlayer';
 import { GameEvent, HandAction, TurnOwner } from '../../common/types';
 import { EventBus } from '../eventBus';
 import dealCardClip from '../../assets/sfx/deal-card.wav';
+import hurtClip from '../../assets/sfx/hurt.wav';
 
 
 export type SfxActionId =
@@ -382,18 +383,18 @@ export const DEFAULT_SFX_PRESETS: readonly SfxPreset[] = [
     //         volume: 0.82,
     //     }),
     // },
-    // {
-    //     actionId: 'damage.player',
-    //     config: createAudioFileConfig(damagePlayerClip, {
-    //         volume: 0.9,
-    //     }),
-    // },
-    // {
-    //     actionId: 'damage.enemy',
-    //     config: createAudioFileConfig(damageEnemyClip, {
-    //         volume: 0.88,
-    //     }),
-    // },
+    {
+        actionId: 'damage.player',
+        config: createAudioFileConfig(hurtClip, {
+            volume: 0.9,
+        }),
+    },
+    {
+        actionId: 'damage.enemy',
+        config: createAudioFileConfig(hurtClip, {
+            volume: 0.88,
+        }),
+    },
     // {
     //     actionId: 'heal.player',
     //     config: createAudioFileConfig(healPlayerClip, {
@@ -448,12 +449,6 @@ export const DEFAULT_SFX_PRESETS: readonly SfxPreset[] = [
             volume: 0.68,
         }),
     },
-    // {
-    //     actionId: 'env.card.exit',
-    //     config: createAudioFileConfig(envCardExitClip, {
-    //         volume: 0.66,
-    //     }),
-    // },
     {
         actionId: 'penalty.card.drawn',
         config: createAudioFileConfig(dealCardClip, {
