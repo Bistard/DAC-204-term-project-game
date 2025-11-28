@@ -6,6 +6,7 @@ import { GameStore } from './state/gameStore';
 import { createInitialGameState } from './state/gameState';
 import {
     GameLogEntry,
+    GameMode,
     GameSnapshot,
     GameState,
     Item,
@@ -64,8 +65,8 @@ export class GameEngine {
         this.store.updateState(mutator, meta);
     }
 
-    startRun() {
-        this.combatService.startRun();
+    startRun(mode: GameMode) {
+        this.combatService.startRun(mode);
     }
 
     startRound() {

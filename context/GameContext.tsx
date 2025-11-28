@@ -16,6 +16,7 @@ import {
     DamageNumber,
     EnvironmentCard,
     GameLogEntry,
+    GameMode,
     GameState,
     HandAction,
     Item,
@@ -49,7 +50,7 @@ interface GameContextType {
     goldEarnedThisLevel: number;
     lastPenaltyEvent: { card: PenaltyCard; state: 'DRAWN' | 'APPLIED'; detail?: string } | null;
     isBattleExiting: boolean;
-    startRun: () => void;
+    startRun: (mode: GameMode) => void;
     hit: (actor: TurnOwner) => Promise<void> | void;
     stand: (actor: TurnOwner) => void;
     useItem: (index: number, actor: TurnOwner) => Promise<void> | void;
@@ -294,7 +295,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         [engine]
     );
 
-    const startRun = useCallback(() => engine.startRun(), [engine]);
+    const startRun = useCallback((mode: GameMode) => engine.startRun(mode), [engine]);
     const hit = useCallback((actor: TurnOwner) => engine.hit(actor), [engine]);
     const stand = useCallback((actor: TurnOwner) => engine.stand(actor), [engine]);
     const useItem = useCallback((index: number, actor: TurnOwner) => engine.useItem(index, actor), [engine]);

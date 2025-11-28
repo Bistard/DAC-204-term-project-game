@@ -1,5 +1,5 @@
 import { STARTING_HP, TARGET_SCORE } from '../../common/constants';
-import { GamePhase, GameState, MetaState } from '../../common/types';
+import { GameMode, GamePhase, GameState, MetaState } from '../../common/types';
 import { createDefaultPenaltyRuntime, createDefaultRoundModifiers, createInitialGameState } from '../state/gameState';
 import {
     applyEnvironmentRules,
@@ -10,15 +10,16 @@ import {
 } from '../utils';
 
 export class RunLifecycleService {
-    startNewRun(meta: MetaState): GameState {
+    startNewRun(meta: MetaState, mode: GameMode): GameState {
         const baseState = createInitialGameState(meta);
-        const envCards = getRandomEnvironment(this.getEnvironmentCount(1));
+        const envCards = getRandomEnvironment(this.getEnvironmentCount(mode, 1));
         const penaltyCard = getRandomPenaltyCard();
         const deck = createDeck();
         const restoredHp = STARTING_HP + meta.upgrades.hpLevel;
 
         return applyEnvironmentRules({
             ...baseState,
+            mode,
             phase: GamePhase.BATTLE,
             runLevel: 1,
             roundCount: 1,
@@ -43,7 +44,7 @@ export class RunLifecycleService {
 
     prepareNextLevel(currentState: GameState, meta: MetaState): GameState {
         const nextLevel = currentState.runLevel + 1;
-        const envCards = getRandomEnvironment(this.getEnvironmentCount(nextLevel));
+        const envCards = getRandomEnvironment(this.getEnvironmentCount(currentState.mode, nextLevel));
         const penaltyCard = getRandomPenaltyCard();
         const deck = createDeck();
         const restoredHp = STARTING_HP + meta.upgrades.hpLevel;
@@ -61,6 +62,7 @@ export class RunLifecycleService {
             playerStood: false,
             enemyStood: false,
             turnOwner: 'PLAYER',
+            mode: currentState.mode,
             player: {
                 ...currentState.player,
                 hp: restoredHp,
@@ -78,7 +80,10 @@ export class RunLifecycleService {
         });
     }
 
-    private getEnvironmentCount(level: number) {
+    private getEnvironmentCount(mode: GameMode, level: number) {
+        if (mode === 'endless') {
+            return 3;
+        }
         if (level <= 1) return 0;
         return Math.min(3, level - 1);
     }

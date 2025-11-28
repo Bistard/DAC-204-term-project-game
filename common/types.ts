@@ -1,5 +1,7 @@
 import React from 'react';
 
+export type GameMode = 'normal' | 'endless';
+
 export enum Suit {
     Hearts = '♥',
     Diamonds = '♦',
@@ -212,6 +214,7 @@ export interface RoundModifierState {
 }
 
 export interface GameState {
+    mode: GameMode;
     phase: GamePhase;
     turnOwner: TurnOwner;
     playerStood: boolean;

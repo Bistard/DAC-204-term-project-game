@@ -1,8 +1,9 @@
 
 import React, { useMemo, useEffect, useState, useCallback } from 'react';
-import { Play, Briefcase, Coins, Heart, Layers, X } from 'lucide-react';
+import { Play, Briefcase, Coins, Heart, Layers, X, Infinity as InfinityIcon, Skull, ShoppingBag, Crosshair } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { useGame } from '../../context/GameContext';
+import { GameMode } from '../../common/types';
 import {
     COST_UPGRADE_HP,
     COST_UPGRADE_INVENTORY,
@@ -337,11 +338,11 @@ export const MenuScreen: React.FC = () => {
         setWalkers(prev => prev.filter(w => w.id !== id));
     }, []);
 
-    const handlePlay = useCallback(() => {
+    const handleStart = useCallback((mode: GameMode) => {
         setIsEntering(true);
         // Wait for zoom animation to mostly finish before switching state
         setTimeout(() => {
-            startRun();
+            startRun(mode);
         }, 2000);
     }, [startRun]);
 
@@ -385,6 +386,7 @@ export const MenuScreen: React.FC = () => {
 
     // Wood grain pattern using repeating linear gradient
     const woodTexture = "repeating-linear-gradient(45deg, rgba(0,0,0,0.1) 0px, rgba(0,0,0,0.1) 2px, transparent 2px, transparent 4px)";
+    const darkWoodTexture = "repeating-linear-gradient(45deg, rgba(0,0,0,0.2) 0px, rgba(0,0,0,0.2) 2px, transparent 2px, transparent 4px)";
 
     return (
         <div className={`min-h-screen flex flex-col items-center justify-center relative overflow-hidden font-['VT323'] bg-[#0c0a16]`}>
@@ -619,35 +621,85 @@ export const MenuScreen: React.FC = () => {
 
                                 {/* --- BUTTONS --- */}
                                 <div className="flex flex-col gap-5 w-full relative z-10 pt-2">
-                                    {/* Play Button - Light Wood Plank */}
+                                    {/* Play Button - "The Trail" */}
                                     <button
-                                        onClick={handlePlay}
+                                        onClick={() => handleStart('normal')}
                                         disabled={isEntering}
-                                        className="group relative w-full h-20 bg-[#d97706] border-b-8 border-r-8 border-[#92400e] active:border-b-0 active:border-r-0 active:translate-y-2 active:translate-x-2 transition-all pixel-corners shadow-[0_4px_10px_rgba(0,0,0,0.4)] disabled:opacity-70 disabled:cursor-not-allowed"
+                                        className="group relative w-full h-24 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
                                     >
-                                        <div className="absolute inset-0 bg-[repeating-linear-gradient(90deg,transparent,transparent_2px,rgba(0,0,0,0.1)_2px,rgba(0,0,0,0.1)_4px)] opacity-50"></div>
-                                        <div className="absolute top-1 left-1 w-1.5 h-1.5 bg-[#78350f] rounded-full opacity-70"></div>
-                                        <div className="absolute top-1 right-1 w-1.5 h-1.5 bg-[#78350f] rounded-full opacity-70"></div>
-                                        <div className="absolute bottom-1 left-1 w-1.5 h-1.5 bg-[#78350f] rounded-full opacity-70"></div>
-                                        <div className="absolute bottom-1 right-1 w-1.5 h-1.5 bg-[#78350f] rounded-full opacity-70"></div>
-
-                                        <div className="relative flex items-center justify-center gap-4 h-full">
-                                            <Play className="fill-[#3e2723] text-[#3e2723] w-8 h-8 group-hover:scale-110 transition-transform" />
-                                            <span className="text-[#3e2723] text-4xl sm:text-5xl font-black tracking-wide western-font drop-shadow-sm">PLAY</span>
+                                        <div className="absolute inset-0 bg-[#7c2d12] border-b-[6px] border-r-[6px] border-[#451a03] pixel-corners shadow-xl group-active:border-none group-active:translate-y-[6px] group-active:translate-x-[6px] group-active:shadow-none transition-all">
+                                            {/* Wood Texture */}
+                                            <div className="absolute inset-0 opacity-30" style={{ backgroundImage: darkWoodTexture }}></div>
+                                            
+                                            {/* Iron Bands */}
+                                            <div className="absolute left-4 top-0 bottom-0 w-3 bg-[#1c1917] border-l border-r border-black/40"></div>
+                                            <div className="absolute right-4 top-0 bottom-0 w-3 bg-[#1c1917] border-l border-r border-black/40"></div>
+                                            
+                                            {/* Top Highlight */}
+                                            <div className="absolute top-0 left-0 right-0 h-1 bg-[#ffffff]/10"></div>
+                                            
+                                            {/* Content */}
+                                            <div className="relative h-full flex items-center justify-between px-10">
+                                                <div className="flex flex-col items-start">
+                                                    <span className="text-[#fdba74] text-[14px] font-bold tracking-[0.3em] uppercase opacity-70 mb-1">Standard Run</span>
+                                                    <span className="text-[#ffedd5] text-4xl sm:text-4xl font-black tracking-widest western-font drop-shadow-md group-hover:text-white transition-colors">PLAY</span>
+                                                </div>
+                                                <div className="w-12 h-12 bg-[#451a03] rounded-full border-2 border-[#7c2d12] flex items-center justify-center shadow-inner group-hover:scale-110 transition-transform">
+                                                    <Crosshair className="w-8 h-8 text-[#fdba74] group-hover:rotate-90 transition-transform duration-500" />
+                                                </div>
+                                            </div>
                                         </div>
                                     </button>
 
-                                    {/* Store Button - Dark Leather/Wood */}
+                                    {/* Endless Button - "Endless Ride" */}
+                                    <button
+                                        onClick={() => handleStart('endless')}
+                                        disabled={isEntering}
+                                        className="group relative w-full h-24 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
+                                    >
+                                        <div className="absolute inset-0 bg-[#312e81] border-b-[6px] border-r-[6px] border-[#1e1b4b] pixel-corners shadow-xl group-active:border-none group-active:translate-y-[6px] group-active:translate-x-[6px] group-active:shadow-none transition-all">
+                                            {/* Mystic Texture */}
+                                            <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_center,transparent_0%,#000_100%)]"></div>
+                                            
+                                            {/* Ghostly Borders */}
+                                            <div className="absolute inset-1 border border-[#6366f1] opacity-30 rounded-sm"></div>
+                                            
+                                            {/* Content */}
+                                            <div className="relative h-full flex items-center justify-between px-10">
+                                                <div className="flex flex-col items-start">
+                                                    <span className="text-[#a5b4fc] text-xs font-bold tracking-[0.3em] uppercase opacity-70 mb-1">Survival Mode</span>
+                                                    <span className="text-[#e0e7ff] text-4xl sm:text-4xl font-black tracking-widest western-font drop-shadow-md group-hover:text-white transition-colors">ENDLESS</span>
+                                                </div>
+                                                <div className="w-12 h-12 bg-[#1e1b4b] rounded-full border-2 border-[#4338ca] flex items-center justify-center shadow-inner group-hover:scale-110 transition-transform">
+                                                    <InfinityIcon className="w-8 h-8 text-[#a5b4fc] group-hover:animate-pulse" />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </button>
+
+                                    {/* Store Button - "Store" */}
                                     <button
                                         onClick={() => setShowUpgrades(true)}
                                         disabled={isEntering}
-                                        className="group relative w-full h-20 bg-[#2a1d18] border-b-8 border-r-8 border-[#1a110d] active:border-b-0 active:border-r-0 active:translate-y-2 active:translate-x-2 transition-all pixel-corners shadow-[0_4px_10px_rgba(0,0,0,0.4)] disabled:opacity-70 disabled:cursor-not-allowed"
+                                        className="group relative w-full h-24 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
                                     >
-                                        <div className="absolute inset-0 bg-[radial-gradient(circle,transparent_20%,#000_120%)] opacity-40"></div>
+                                        <div className="absolute inset-0 bg-[#451a03] border-b-[6px] border-r-[6px] border-[#271c19] pixel-corners shadow-xl group-active:border-none group-active:translate-y-[6px] group-active:translate-x-[6px] group-active:shadow-none transition-all">
+                                            {/* Leather Texture */}
+                                            <div className="absolute inset-2 border-2 border-[#78350f] bg-[#3e1c05] opacity-80" style={{ backgroundImage: "url('https://www.transparenttextures.com/patterns/leather.png')" }}></div>
+                                            
+                                            {/* Gold Corners */}
+                                            <div className="absolute top-2 left-2 w-3 h-3 bg-[#f59e0b] border border-[#78350f]"></div>
+                                            <div className="absolute top-2 right-2 w-3 h-3 bg-[#f59e0b] border border-[#78350f]"></div>
+                                            <div className="absolute bottom-2 left-2 w-3 h-3 bg-[#f59e0b] border border-[#78350f]"></div>
+                                            <div className="absolute bottom-2 right-2 w-3 h-3 bg-[#f59e0b] border border-[#78350f]"></div>
 
-                                        <div className="relative flex items-center justify-center gap-4 h-full">
-                                            <Briefcase className="text-[#a1887f] w-8 h-8 group-hover:text-[#d7ccc8] transition-colors" />
-                                            <span className="text-[#a1887f] group-hover:text-[#d7ccc8] text-4xl sm:text-5xl font-black tracking-wide western-font transition-colors">STORE</span>
+                                            {/* Content */}
+                                            <div className="relative h-full flex items-center justify-between px-10">
+                                                <span className="item-start text-[#d7ccc8] group-hover:text-white text-4xl sm:text-4xl font-black tracking-wide western-font transition-colors">STORE</span>
+                                                <div className="w-12 h-12 bg-[#3e1c05] rounded-full border-2 border-[#78350f] flex items-center justify-center shadow-inner group-hover:scale-110 transition-transform">
+                                                    <ShoppingBag className="text-[#d7ccc8] w-8 h-8 group-hover:text-white transition-colors group-hover:animate-pulse" />
+                                                </div>
+                                            </div>
                                         </div>
                                     </button>
                                 </div>
@@ -683,7 +735,7 @@ export const MenuScreen: React.FC = () => {
                         <div className="text-center mb-8 border-b-4 border-[#271c19] pb-6 bg-[#2a1810] p-4 shadow-inner relative overflow-hidden">
                             <div className="absolute inset-0 opacity-10 bg-[radial-gradient(circle,transparent_50%,#000_150%)]"></div>
                             <h2 className="text-5xl text-[#f3e5ab] font-bold flex items-center justify-center gap-4 mb-2 drop-shadow-md">
-                                <Briefcase className="w-10 h-10 text-[#8d6e63]" /> STORE
+                                <Briefcase className="w-10 h-10 text-[#8d6e63]" /> GENERAL STORE
                             </h2>
                             <div className="flex items-center justify-center gap-2 text-3xl text-amber-400 bg-black/40 py-2 px-8 inline-block pixel-corners border border-[#5d4037] shadow-lg">
                                 <Coins className="w-6 h-6" /> <span>{metaState.gold}</span>

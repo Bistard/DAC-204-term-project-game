@@ -1,7 +1,7 @@
 import { DELAY_ITEM_USE } from '../../common/constants';
 import { EventBus } from '../eventBus';
 import { GameStore } from '../state/gameStore';
-import { GamePhase, Item, MetaState, StoreUpdateMeta, TurnOwner } from '../../common/types';
+import { GameMode, GamePhase, Item, MetaState, StoreUpdateMeta, TurnOwner } from '../../common/types';
 import { sleep } from '../utils';
 import { RewardService } from './rewardService';
 import { RoundService } from './roundService';
@@ -75,8 +75,8 @@ export class CombatService {
         });
     }
 
-    startRun() {
-        this.roundService.startRun();
+    startRun(mode: GameMode) {
+        this.roundService.startRun(mode);
     }
 
     startRound() {

@@ -13,6 +13,7 @@ import { createDefaultRoundModifiers } from '../state/gameState';
 import {
     Card,
     ClashState,
+    GameMode,
     GamePhase,
     GameState,
     HandAction,
@@ -54,9 +55,9 @@ type ResolveDamageContext = ClashComputationResult & {
 export class RoundService {
     constructor(private deps: RoundServiceDeps) {}
 
-    startRun() {
+    startRun(mode: GameMode) {
         const meta = this.deps.getMetaState();
-        const initialState = this.deps.runLifecycleService.startNewRun(meta);
+        const initialState = this.deps.runLifecycleService.startNewRun(meta, mode);
         this.deps.store.setState(
             initialState,
             this.deps.createMeta('start-run', 'Initialize new run', { runLevel: initialState.runLevel })

@@ -24,6 +24,7 @@ export const createDefaultPenaltyRuntime = (): PenaltyRuntimeState => ({
 });
 
 export const createInitialGameState = (metaState: MetaState): GameState => ({
+    mode: 'normal',
     phase: GamePhase.MENU,
     turnOwner: 'PLAYER',
     playerStood: false,
