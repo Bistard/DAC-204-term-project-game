@@ -9,7 +9,6 @@ import React, {
     useState,
 } from 'react';
 import { DELAY_SHORT } from '../common/constants';
-import { createAudioClipPlayer } from '../common/audio/audioClipPlayer';
 import { EventBus } from '../engine/eventBus';
 import { SfxService, registerDefaultSfxPresets } from '../engine/services/sfxService';
 import { GameEngine } from '../engine/gameEngine';
@@ -255,23 +254,16 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         [saveData]
     );
 
-    const audioPlayerRef = useRef<ReturnType<typeof createAudioClipPlayer> | null>(null);
     const busRef = useRef<EventBus | null>(null);
     const sfxRef = useRef<SfxService | null>(null);
-    if (!audioPlayerRef.current) {
-        audioPlayerRef.current = createAudioClipPlayer();
-    }
     if (!busRef.current) {
         busRef.current = new EventBus();
     }
 
     useEffect(() => {
-        if (!busRef.current || sfxRef.current || !audioPlayerRef.current) return;
-        const audioPlayer = audioPlayerRef.current;
+        if (!busRef.current || sfxRef.current) return;
         const sfx = new SfxService({
             bus: busRef.current,
-            playAudio: (src, options) => audioPlayer.play(src, options),
-            preloadAudio: src => audioPlayer.preload(src),
             isEnabled: () => true,
         });
         registerDefaultSfxPresets(sfx);

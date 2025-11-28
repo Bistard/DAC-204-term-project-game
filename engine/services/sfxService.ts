@@ -1,11 +1,11 @@
-import { AudioPlaybackOptions } from '../../common/audio/audioClipPlayer';
 import { GameEvent, HandAction, TurnOwner } from '../../common/types';
 import { EventBus } from '../eventBus';
 import dealCardClip from '../../assets/sfx/deal-card.wav';
 import damageHurtClip from '../../assets/sfx/hurt.wav';
 import battleWinClip from '../../assets/sfx/win.wav';
 import crowdedSaloonClip from '../../assets/sfx/crowded-saloon.wav';
-
+import flipCardClip from '../../assets/sfx/flip-card.wav';
+import clashRoundClip from '../../assets/sfx/round-clash.wav';
 
 export type SfxActionId =
     | 'battle.victory'
@@ -52,6 +52,17 @@ export interface AudioFilePlaybackRateRange {
     max?: number;
 }
 
+export interface AudioPlaybackOptions {
+    volume?: number;
+    playbackRate?: number;
+    loop?: boolean;
+}
+
+interface AudioPlaybackHandle {
+    stop(): void;
+    finished: Promise<void>;
+}
+
 export interface AudioFileConfig {
     type: 'audio-file';
     src: string;
@@ -59,16 +70,23 @@ export interface AudioFileConfig {
     playbackRate?: number | AudioFilePlaybackRateRange;
     loop?: boolean;
     preload?: boolean;
+    stopActions?: readonly SfxActionId[];
 }
 
 export type SfxConfig = AudioFileConfig | SfxPlayFn;
 
 export type SfxRegistry = Map<SfxActionId, SfxConfig>;
 
+interface SfxAudioAdapter {
+    preload(src: string): Promise<void> | void;
+    play(src: string, options?: AudioPlaybackOptions): Promise<AudioPlaybackHandle | void> | AudioPlaybackHandle | void;
+    stopAll(): void;
+    dispose?: () => void | Promise<void>;
+}
+
 interface SfxServiceDeps {
     bus: EventBus;
-    playAudio: (src: string, options?: AudioPlaybackOptions) => void | Promise<void>;
-    preloadAudio?: (src: string) => void | Promise<void>;
+    audio?: SfxAudioAdapter;
     isEnabled?: () => boolean;
     log?: (msg: string, extra?: unknown) => void;
 }
@@ -76,27 +94,209 @@ interface SfxServiceDeps {
 type Owner = 'player' | 'enemy';
 
 const SYNTHETIC_EVENT_EFFECT_PREFIX = 'sfx:';
+const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+
+const createDefaultAudioAdapter = (log: (msg: string, extra?: unknown) => void): SfxAudioAdapter => {
+    let masterVolume = 1;
+    let audioContext: AudioContext | null = null;
+    let resumePromise: Promise<void> | null = null;
+    const bufferCache = new Map<string, Promise<AudioBuffer | null>>();
+    const activeSources = new Map<AudioBufferSourceNode, GainNode>();
+    const activeHandles = new Set<AudioPlaybackHandle>();
+
+    const ensureAudioContext = (): AudioContext | null => {
+        if (typeof window === 'undefined') return null;
+        if (!audioContext) {
+            const ctor =
+                window.AudioContext ??
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+            if (!ctor) {
+                log('[SfxService] Web Audio API is unavailable');
+                return null;
+            }
+            audioContext = new ctor();
+        }
+        if (audioContext.state === 'suspended' && !resumePromise) {
+            resumePromise = audioContext
+                .resume()
+                .catch(error => {
+                    log('[SfxService] Failed to resume AudioContext', error);
+                })
+                .finally(() => {
+                    resumePromise = null;
+                });
+        }
+        return audioContext;
+    };
+
+    const decodeBuffer = (ctx: AudioContext, arrayBuffer: ArrayBuffer): Promise<AudioBuffer | null> => {
+        if (typeof ctx.decodeAudioData === 'function') {
+            return new Promise(resolve => {
+                ctx.decodeAudioData(
+                    arrayBuffer,
+                    buffer => resolve(buffer),
+                    error => {
+                        log('[SfxService] Failed to decode audio buffer', error);
+                        resolve(null);
+                    }
+                );
+            });
+        }
+        return Promise.resolve(null);
+    };
+
+    const fetchBuffer = (src: string): Promise<AudioBuffer | null> => {
+        let pending = bufferCache.get(src);
+        if (pending) return pending;
+        const ctx = ensureAudioContext();
+        if (!ctx) {
+            pending = Promise.resolve(null);
+            bufferCache.set(src, pending);
+            return pending;
+        }
+        pending = fetch(src)
+            .then(response => {
+                if (!response.ok) throw new Error(`Failed to fetch audio clip: ${response.status}`);
+                return response.arrayBuffer();
+            })
+            .then(arrayBuffer => decodeBuffer(ctx, arrayBuffer))
+            .catch(error => {
+                bufferCache.delete(src);
+                log('[SfxService] Failed to load audio source', { src, error });
+                return null;
+            });
+        bufferCache.set(src, pending);
+        return pending;
+    };
+
+    const cleanupSource = (source: AudioBufferSourceNode) => {
+        const gain = activeSources.get(source);
+        if (gain) {
+            try {
+                gain.disconnect();
+            } catch (error) {
+                log('[SfxService] Failed to disconnect gain node', error);
+            }
+        }
+        activeSources.delete(source);
+        source.onended = null;
+        try {
+            source.disconnect();
+        } catch (error) {
+            log('[SfxService] Failed to disconnect source node', error);
+        }
+    };
+
+    const registerHandle = (handle: AudioPlaybackHandle) => {
+        activeHandles.add(handle);
+        handle.finished.finally(() => activeHandles.delete(handle));
+    };
+
+    const stopAll = () => {
+        Array.from(activeHandles.values()).forEach(handle => handle.stop());
+    };
+
+    return {
+        async preload(src: string) {
+            if (!src) return;
+            await fetchBuffer(src);
+        },
+        async play(src: string, options?: AudioPlaybackOptions) {
+            if (!src) return;
+            const ctx = ensureAudioContext();
+            if (!ctx) return;
+            const buffer = await fetchBuffer(src);
+            if (!buffer) return;
+            const source = ctx.createBufferSource();
+            source.buffer = buffer;
+            if (typeof options?.playbackRate === 'number' && Number.isFinite(options.playbackRate)) {
+                source.playbackRate.value = clamp(options.playbackRate, 0.25, 4);
+            }
+            if (options?.loop) {
+                source.loop = true;
+            }
+            const gain = ctx.createGain();
+            const volume = typeof options?.volume === 'number' ? options.volume : 1;
+            gain.gain.value = clamp(volume * masterVolume, 0, 1);
+            source.connect(gain).connect(ctx.destination);
+            activeSources.set(source, gain);
+            let finish!: () => void;
+            let ended = false;
+            const finished = new Promise<void>(resolve => {
+                finish = resolve;
+            });
+            const finalize = () => {
+                if (ended) return;
+                ended = true;
+                cleanupSource(source);
+                finish();
+            };
+            source.onended = () => finalize();
+            const handle: AudioPlaybackHandle = {
+                stop: () => {
+                    if (ended) return;
+                    try {
+                        source.stop();
+                    } catch (error) {
+                        log('[SfxService] Failed to stop source node', error);
+                    } finally {
+                        finalize();
+                    }
+                },
+                finished,
+            };
+            registerHandle(handle);
+            source.start();
+            return handle;
+        },
+        stopAll,
+        async dispose() {
+            stopAll();
+            bufferCache.clear();
+            const ctx = audioContext;
+            audioContext = null;
+            if (ctx && ctx.state !== 'closed') {
+                try {
+                    await ctx.close();
+                } catch (error) {
+                    log('[SfxService] Failed to close AudioContext', error);
+                }
+            }
+        },
+    };
+};
 
 export class SfxService {
     private registry: SfxRegistry = new Map();
     private unsubscribe?: () => void;
     private readonly isEnabled: () => boolean;
     private readonly log: (msg: string, extra?: unknown) => void;
+    private readonly audio: SfxAudioAdapter;
+    private readonly playingHandles = new Map<SfxActionId, Set<AudioPlaybackHandle>>();
 
-    constructor(private readonly deps: SfxServiceDeps) {
+    constructor(deps: SfxServiceDeps) {
         this.isEnabled = deps.isEnabled ?? (() => true);
         this.log = deps.log ?? ((msg: string, extra?: unknown) => console.warn(msg, extra));
+        this.audio = deps.audio ?? createDefaultAudioAdapter(this.log);
         this.unsubscribe = deps.bus.subscribe(this.handleEvent);
     }
 
     dispose() {
         this.unsubscribe?.();
         this.unsubscribe = undefined;
+        this.audio.stopAll();
+        this.playingHandles.clear();
+        if (typeof this.audio.dispose === 'function') {
+            Promise.resolve(this.audio.dispose()).catch(error => {
+                this.log('[SfxService] Failed to dispose audio adapter', error);
+            });
+        }
     }
 
     register(actionId: SfxActionId, config: SfxConfig) {
         this.registry.set(actionId, config);
-        if (this.isAudioConfig(config)) {
+        if (this.isAudioConfig(config) && config.preload !== false) {
             this.preloadAudioSources(config);
         }
     }
@@ -131,9 +331,13 @@ export class SfxService {
         }
 
         if (this.isAudioConfig(config)) {
+            if (config.stopActions?.length) {
+                config.stopActions.forEach(action => this.stopActionPlayback(action));
+            }
             const src = this.pickAudioSource(config);
             if (!src) return;
-            this.deps.playAudio(src, this.createPlaybackOptions(config));
+            const handleResult = this.audio.play(src, this.createPlaybackOptions(config));
+            this.trackHandle(actionId, handleResult);
             return;
         }
 
@@ -182,13 +386,46 @@ export class SfxService {
     }
 
     private preloadAudioSources(config: AudioFileConfig) {
-        if (!this.deps.preloadAudio) return;
         const sources = Array.isArray(config.src) ? config.src : [config.src];
         sources.forEach(src => {
             if (src) {
-                this.deps.preloadAudio?.(src);
+                this.audio.preload(src);
             }
         });
+    }
+
+    private trackHandle(
+        actionId: SfxActionId,
+        maybeHandle: AudioPlaybackHandle | void | Promise<AudioPlaybackHandle | void>
+    ) {
+        if (!maybeHandle) return;
+        Promise.resolve(maybeHandle)
+            .then(handle => {
+                if (!handle) return;
+                const set = this.playingHandles.get(actionId) ?? new Set<AudioPlaybackHandle>();
+                if (!this.playingHandles.has(actionId)) {
+                    this.playingHandles.set(actionId, set);
+                }
+                set.add(handle);
+                handle.finished.finally(() => {
+                    const currentSet = this.playingHandles.get(actionId);
+                    if (!currentSet) return;
+                    currentSet.delete(handle);
+                    if (currentSet.size === 0) {
+                        this.playingHandles.delete(actionId);
+                    }
+                });
+            })
+            .catch(error => {
+                this.log('[SfxService] Failed to track audio handle', error);
+            });
+    }
+
+    private stopActionPlayback(actionId: SfxActionId) {
+        const handles = this.playingHandles.get(actionId);
+        if (!handles) return;
+        handles.forEach(handle => handle.stop());
+        this.playingHandles.delete(actionId);
     }
 
     private mapEventToActions(event: GameEvent): SfxActionId[] {
@@ -310,6 +547,7 @@ const createAudioFileConfig = (
     playbackRate: options.playbackRate,
     loop: options.loop,
     preload: options.preload ?? true,
+    stopActions: options.stopActions,
 });
 
 export const DEFAULT_SFX_PRESETS: readonly SfxPreset[] = [
@@ -322,8 +560,9 @@ export const DEFAULT_SFX_PRESETS: readonly SfxPreset[] = [
     {
         actionId: 'round.start',
         config: createAudioFileConfig(crowdedSaloonClip, {
-            volume: 0.2,
+            volume: 0.1,
             loop: true,
+            stopActions: ['battle.victory']
         }),
     },
     {
@@ -344,18 +583,18 @@ export const DEFAULT_SFX_PRESETS: readonly SfxPreset[] = [
             volume: 0.65,
         }),
     },
-    // {
-    //     actionId: 'card.reveal.player',
-    //     config: createAudioFileConfig(cardDrawPlayerClip, {
-    //         volume: 0.6,
-    //     }),
-    // },
-    // {
-    //     actionId: 'card.reveal.enemy',
-    //     config: createAudioFileConfig(cardDrawEnemyClip, {
-    //         volume: 0.58,
-    //     }),
-    // },
+    {
+        actionId: 'card.reveal.player',
+        config: createAudioFileConfig(flipCardClip, {
+            volume: 1,
+        }),
+    },
+    {
+        actionId: 'card.reveal.enemy',
+        config: createAudioFileConfig(flipCardClip, {
+            volume: 1,
+        }),
+    },
     // {
     //     actionId: 'hand.hit.player',
     //     config: createAudioFileConfig(handHitPlayerClip, {
@@ -440,12 +679,12 @@ export const DEFAULT_SFX_PRESETS: readonly SfxPreset[] = [
     //         volume: 0.7,
     //     }),
     // },
-    // {
-    //     actionId: 'round.clash',
-    //     config: createAudioFileConfig(roundClashClip, {
-    //         volume: 0.92,
-    //     }),
-    // },
+    {
+        actionId: 'round.clash',
+        config: createAudioFileConfig(clashRoundClip, {
+            volume: 1,
+        }),
+    },
     // {
     //     actionId: 'round.win',
     //     config: createAudioFileConfig(roundWinClip, {
