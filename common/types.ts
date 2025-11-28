@@ -350,7 +350,11 @@ export type GameEvent =
     | { type: 'environment.animation'; payload: { card: EnvironmentCard; state: 'entering' | 'holding' | 'exiting' } }
     | { type: 'penalty.animation'; payload: { card: PenaltyCard; state: 'entering' | 'holding' | 'exiting' } }
     | { type: 'penalty.card'; payload: { card: PenaltyCard; state: 'DRAWN' | 'APPLIED'; detail?: string } }
-    | { type: 'clash.state'; payload: ClashState };
+    | { type: 'clash.state'; payload: ClashState }
+    | { type: 'round.start'; }
+    | { type: 'round.end'; }
+    | { type: 'battle.victory'; }
+    ;
 
 export type GameEventListener = (event: GameEvent) => void;
 

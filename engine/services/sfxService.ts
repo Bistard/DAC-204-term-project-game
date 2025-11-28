@@ -2,10 +2,15 @@ import { AudioPlaybackOptions } from '../../common/audio/audioClipPlayer';
 import { GameEvent, HandAction, TurnOwner } from '../../common/types';
 import { EventBus } from '../eventBus';
 import dealCardClip from '../../assets/sfx/deal-card.wav';
-import hurtClip from '../../assets/sfx/hurt.wav';
+import damageHurtClip from '../../assets/sfx/hurt.wav';
+import battleWinClip from '../../assets/sfx/win.wav';
+import crowdedSaloonClip from '../../assets/sfx/crowded-saloon.wav';
 
 
 export type SfxActionId =
+    | 'battle.victory'
+    | 'round.start'
+    | 'round.end'
     | 'card.draw.player'
     | 'card.draw.enemy'
     | 'card.reveal.player'
@@ -243,6 +248,12 @@ export class SfxService {
             }
             case 'visual.effect':
                 return ['ui.error'];
+            case 'round.start':
+                    return ['round.start'];
+            case 'round.end':
+                    return ['round.end'];
+            case 'battle.victory':
+                    return ['battle.victory'];
             default:
                 return [];
         }
@@ -303,45 +314,58 @@ const createAudioFileConfig = (
 
 export const DEFAULT_SFX_PRESETS: readonly SfxPreset[] = [
     {
+        actionId: 'battle.victory',
+        config: createAudioFileConfig(battleWinClip, {
+            volume: 1,
+        }),
+    },
+    {
+        actionId: 'round.start',
+        config: createAudioFileConfig(crowdedSaloonClip, {
+            volume: 0.2,
+            loop: true,
+        }),
+    },
+    {
         actionId: 'card.draw.player',
         config: createAudioFileConfig(dealCardClip, {
             volume: 0.7,
-            playbackRate: { min: 0.96, max: 1.04 },
+        }),
+    },
+    {
+        actionId: 'card.draw.player',
+        config: createAudioFileConfig(dealCardClip, {
+            volume: 0.7,
         }),
     },
     {
         actionId: 'card.draw.enemy',
         config: createAudioFileConfig(dealCardClip, {
             volume: 0.65,
-            playbackRate: { min: 0.94, max: 1.02 },
         }),
     },
     // {
     //     actionId: 'card.reveal.player',
     //     config: createAudioFileConfig(cardDrawPlayerClip, {
     //         volume: 0.6,
-    //         playbackRate: { min: 0.9, max: 1 },
     //     }),
     // },
     // {
     //     actionId: 'card.reveal.enemy',
     //     config: createAudioFileConfig(cardDrawEnemyClip, {
     //         volume: 0.58,
-    //         playbackRate: { min: 0.9, max: 1 },
     //     }),
     // },
     // {
     //     actionId: 'hand.hit.player',
     //     config: createAudioFileConfig(handHitPlayerClip, {
     //         volume: 0.85,
-    //         playbackRate: { min: 0.92, max: 1.05 },
     //     }),
     // },
     // {
     //     actionId: 'hand.hit.enemy',
     //     config: createAudioFileConfig(handHitEnemyClip, {
     //         volume: 0.83,
-    //         playbackRate: { min: 0.92, max: 1.03 },
     //     }),
     // },
     // {
@@ -354,21 +378,18 @@ export const DEFAULT_SFX_PRESETS: readonly SfxPreset[] = [
     //     actionId: 'hand.stand.enemy',
     //     config: createAudioFileConfig(handStandClip, {
     //         volume: 0.55,
-    //         playbackRate: 0.95,
     //     }),
     // },
     {
         actionId: 'hand.useItem.player',
         config: createAudioFileConfig(dealCardClip, {
             volume: 0.78,
-            playbackRate: { min: 0.9, max: 1.1 },
         }),
     },
     {
         actionId: 'hand.useItem.enemy',
         config: createAudioFileConfig(dealCardClip, {
             volume: 0.72,
-            playbackRate: { min: 0.85, max: 1 },
         }),
     },
     // {
@@ -385,13 +406,13 @@ export const DEFAULT_SFX_PRESETS: readonly SfxPreset[] = [
     // },
     {
         actionId: 'damage.player',
-        config: createAudioFileConfig(hurtClip, {
-            volume: 0.9,
+        config: createAudioFileConfig(damageHurtClip, {
+            volume: 1,
         }),
     },
     {
         actionId: 'damage.enemy',
-        config: createAudioFileConfig(hurtClip, {
+        config: createAudioFileConfig(damageHurtClip, {
             volume: 0.88,
         }),
     },
@@ -428,7 +449,7 @@ export const DEFAULT_SFX_PRESETS: readonly SfxPreset[] = [
     // {
     //     actionId: 'round.win',
     //     config: createAudioFileConfig(roundWinClip, {
-    //         volume: 0.85,
+    //         volume: 1,
     //     }),
     // },
     // {
@@ -455,12 +476,6 @@ export const DEFAULT_SFX_PRESETS: readonly SfxPreset[] = [
             volume: 0.75,
         }),
     },
-    {
-        actionId: 'penalty.card.applied',
-        config: createAudioFileConfig(dealCardClip, {
-            volume: 0.78,
-        }),
-    }
 ];
 
 export const registerDefaultSfxPresets = (service: SfxService) => {

@@ -62,10 +62,6 @@ export class RoundService {
             initialState,
             this.deps.createMeta('start-run', 'Initialize new run', { runLevel: initialState.runLevel })
         );
-        if (initialState.activePenalty) {
-            this.emitPenaltyEvent(initialState.activePenalty, 'DRAWN', 'Battle penalty selected.');
-        }
-
         this.startRound();
     }
 
@@ -78,12 +74,16 @@ export class RoundService {
         this.setDealing(true);
         this.clearRoundModifiers('round.start', true);
 
+        // start
+        this.deps.eventBus.emit({ type: 'round.start' });
+
         // wait for intro animation complete
         await sleep(DELAY_STANDARD);
         
         const isIntroRound = snapshot.state.roundCount === 1;
         if (isIntroRound) {
             if (snapshot.state.activePenalty) {
+                this.emitPenaltyEvent(snapshot.state.activePenalty, 'DRAWN', 'Battle penalty selected.');
                 await this.playPenaltySequence();
             }
             if (snapshot.state.activeEnvironment.length > 0) {
@@ -493,6 +493,7 @@ export class RoundService {
                 flags => ({ ...flags, isBattleExiting: true }),
                 this.deps.createMeta('flag.exit', 'Battle exiting animation', undefined, { suppressHistory: true })
             );
+            this.deps.eventBus.emit({ type: 'round.end' });
             await sleep(DELAY_STANDARD);
         }
 

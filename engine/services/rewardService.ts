@@ -34,6 +34,7 @@ export class RewardService {
     }
 
     async handleVictory() {
+        this.eventBus.emit({ type: 'battle.victory' });
         this.store.updateState(
             prev => ({
                 ...prev,
