@@ -10,7 +10,6 @@ import React, {
 } from 'react';
 import { DELAY_SHORT } from '../common/constants';
 import { EventBus } from '../engine/eventBus';
-import { SfxService, registerDefaultSfxPresets } from '../engine/services/sfxService';
 import { GameEngine } from '../engine/gameEngine';
 import {
     ClashState,
@@ -255,24 +254,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     );
 
     const busRef = useRef<EventBus | null>(null);
-    const sfxRef = useRef<SfxService | null>(null);
     if (!busRef.current) {
         busRef.current = new EventBus();
     }
-
-    useEffect(() => {
-        if (!busRef.current || sfxRef.current) return;
-        const sfx = new SfxService({
-            bus: busRef.current,
-            isEnabled: () => true,
-        });
-        registerDefaultSfxPresets(sfx);
-        sfxRef.current = sfx;
-        return () => {
-            sfx.dispose();
-            sfxRef.current = null;
-        };
-    }, []);
 
     const instantiateEngine = useCallback(
         () =>
