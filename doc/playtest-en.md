@@ -5,7 +5,7 @@
 **Team:** Last Hand Team  
 **Role:** Programming
 
-## 1. Game Overview: Formal Elements
+## 1. Game Overview
 
 "Last Hand" is essentially a single-player, deck-based rogue-lite. The player acts as a half‑baked gambler in a border town, bringing a "last hand" of cards to gamble against a cast of stylistically distinct AI opponents.
 
@@ -32,7 +32,7 @@ Environment and items shift the criteria for what counts as a "good card" or "ba
 
 In some stages I deliberately stack high‑risk, high‑reward environment effects, so that "going for it" can either generate explosive positive feedback or genuinely throw away the entire run. That way, when players say "one more hand," it's not just for the numeric rewards; they really are making deals with risk.
 
-## 2. Dramatic Elements and Experience Goals
+## 2. Dramatic and Experience
 
 "Gambling your fate with your last hand in a border town" is the core premise of this game. The humble town, the closed gambling table, and the cold "penalty notices" on the wall together create a slightly oppressive sense of danger. Each penalty card is both a rule and a subtextual line from this shady establishment: you know you're sitting at an unfair table, but you still want to see if you can somehow beat it.
 
